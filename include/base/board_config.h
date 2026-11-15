@@ -88,6 +88,9 @@
 #ifndef SEMA_USE_ADS1115
 #define SEMA_USE_ADS1115 SEMA_OFF
 #endif
+#ifndef SEMA_USE_MODBUS_TCP
+#define SEMA_USE_MODBUS_TCP SEMA_OFF
+#endif
 
 // --- Transceiver RS485 ---
 #ifndef SEMA_MODBUS_ISOLATED

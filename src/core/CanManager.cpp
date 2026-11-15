@@ -25,6 +25,13 @@ void CanManager::apply(const CanConfig& cfg) {
     return;
   }
 
+  // RS = standby del transceiver (SN65HVD233/234): HIGH = normal, LOW = standby.
+  // Si el usuario asigna el pin lo dejamos en normal; 0 = sin control.
+  if (cfg_.rsPin != 0) {
+    pinMode(cfg_.rsPin, OUTPUT);
+    digitalWrite(cfg_.rsPin, HIGH);
+  }
+
   twai_general_config_t g = TWAI_GENERAL_CONFIG_DEFAULT(
       static_cast<gpio_num_t>(cfg_.txPin), static_cast<gpio_num_t>(cfg_.rxPin),
       TWAI_MODE_NORMAL);

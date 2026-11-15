@@ -37,6 +37,9 @@
 #if SEMA_USE_CAN
 #include "core/CanManager.hpp"
 #endif
+#if SEMA_USE_MODBUS_TCP
+#include "core/ModbusTcpManager.hpp"
+#endif
 #if SEMA_USE_LORA
 #include "core/LoraManager.hpp"
 #endif
@@ -114,6 +117,9 @@ public:
 #if SEMA_USE_CAN
   void applyCan();
 #endif
+#if SEMA_USE_MODBUS_TCP
+  void applyModbusTcp();
+#endif
 #if SEMA_USE_LORA
   void applyLora();
 #endif
@@ -170,6 +176,9 @@ public:
 #if SEMA_USE_CAN
   CanManager& can() { return can_; }
 #endif
+#if SEMA_USE_MODBUS_TCP
+  ModbusTcpManager& modbusTcp() { return modbusTcp_; }
+#endif
 #if SEMA_USE_LORA
   LoraManager& lora() { return lora_; }
 #endif
@@ -222,6 +231,9 @@ private:
 #endif
 #if SEMA_USE_CAN
   CanManager can_;
+#endif
+#if SEMA_USE_MODBUS_TCP
+  ModbusTcpManager modbusTcp_;
 #endif
 #if SEMA_USE_LORA
   LoraManager lora_;

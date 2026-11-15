@@ -149,6 +149,9 @@ void SemaCore::setup() {
 #if SEMA_USE_CAN
   can_.apply(config_.get().can);
 #endif
+#if SEMA_USE_MODBUS_TCP
+  modbusTcp_.apply(config_.get().modbusTcp);
+#endif
 #if SEMA_USE_LORA
   lora_.apply(config_.get().lora);
 #endif
@@ -211,6 +214,29 @@ void SemaCore::setup() {
       publishers_.publishAll(m);
     }
     rules_.evaluate(sensors_.measurements());
+#if SEMA_USE_MODBUS_TCP
+    // Modbus TCP: publica las mediciones activas como holding registers y los
+    // GPIO de entrada como coils. Registro/coil N = índice N (sin placa fija).
+    {
+      const auto& ms = sensors_.measurements();
+      for (uint16_t i = 0; i < ms.size() && i < ModbusTcpManager::kHoldingCount; ++i) {
+        // float→int16 ×100 (dos complementos, para magnitudes negativas).
+        const int32_t scaled = static_cast<int32_t>(ms[i].value * 100.0f);
+        const int32_t c = (scaled < -32768) ? -32768 : (scaled > 32767 ? 32767 : scaled);
+        modbusTcp_.setHoldingRegister(i, static_cast<uint16_t>(static_cast<int16_t>(c)));
+      }
+      const auto& gpios = config_.get().gpio;
+      uint16_t coilIdx = 0;
+      for (const GpioSpec& g : gpios) {
+        if (coilIdx >= ModbusTcpManager::kCoilCount) {
+          break;
+        }
+        if (g.mode == "input" || g.mode == "input_pullup" || g.mode == "input_pulldown") {
+          modbusTcp_.setCoil(coilIdx++, gpio_.read(g.pin) != 0);
+        }
+      }
+    }
+#endif
   });
 
   modules_.enableAll();
@@ -375,6 +401,12 @@ void SemaCore::applyCan() {
 }
 #endif
 
+#if SEMA_USE_MODBUS_TCP
+void SemaCore::applyModbusTcp() {
+  modbusTcp_.apply(config_.get().modbusTcp);
+}
+#endif
+
 #if SEMA_USE_LORA
 void SemaCore::applyLora() {
   lora_.apply(config_.get().lora);
@@ -412,6 +444,9 @@ void SemaCore::loop() {
 #endif
 #if SEMA_USE_ETHERNET
   ethernet_.loop();
+#endif
+#if SEMA_USE_MODBUS_TCP
+  modbusTcp_.loop();
 #endif
   // Retención por tiempo: poda el histórico periódicamente (cada hora).
   {

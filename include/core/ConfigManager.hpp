@@ -191,6 +191,28 @@ struct Ads1115Config {
   uint8_t channels[4] = {0};     // 0=no usado, 1=leer ese canal (A0-A3)
 };
 
+// Transceiver RS485 (Modbus RTU). Todos son half-duplex con DE/RE activo-alto
+// (control idéntico vía SEMA_PIN_MODBUS_DERE). La diferencia real entre modelos
+// es el aislamiento galvánico: TD501D485H y ADM2483BRWZ aíslan; MAX3485ED y
+// SN65HVD75DR no aíslan. La selección es informativa/configurable.
+enum class ModbusTransceiver : uint8_t {
+  NONE = 0,         // sin transceiver (RS232 directo / pruebas)
+  AUTO = 1,         // selección automática (default)
+  MAX3485ED = 2,    // 3.3V, sin aislar, hasta 250 kbps
+  SN65HVD75DR = 3,  // 3.3V, sin aislar, slew-rate limitado (EMI baja)
+  TD501D485H = 4,   // aislado, 3.3V, pin-compatible con ADM2483
+  ADM2483BRWZ = 5   // aislado, half-duplex, hasta 500 kbps
+};
+
+// Transceiver CAN. RS = standby (HIGH=normal, LOW=standby); NO es slope-control
+// (el slope-control es el SN65HVD230).
+enum class CanTransceiver : uint8_t {
+  NONE = 0,          // sin transceiver
+  AUTO = 1,          // auto (RS sin usar, modo normal)
+  SN65HVD233DR = 2,  // RS = standby, lógica 3.3V
+  SN65HVD234DR = 3   // RS = standby, 3.3V, bus tolerante a 5V
+};
+
 // RS485 / Modbus RTU (maestro de un esclavo).
 struct ModbusConfig {
   bool enabled = false;
@@ -203,6 +225,7 @@ struct ModbusConfig {
   uint8_t slaveId = 1;
   uint16_t registerAddr = 0;  // dirección del primer registro
   uint16_t registerCount = 4; // cantidad de registros a leer
+  ModbusTransceiver transceiver = ModbusTransceiver::AUTO;
 };
 
 // CAN (TWAI, CAN 2.0).
@@ -211,6 +234,16 @@ struct CanConfig {
   uint8_t txPin = 5;
   uint8_t rxPin = 4;
   uint32_t speed = 500000;  // bps: 125000 | 250000 | 500000 | 1000000
+  CanTransceiver transceiver = CanTransceiver::AUTO;
+  uint8_t rsPin = 0;        // RS (standby) del transceiver; 0 = sin control
+};
+
+// Modbus TCP servidor (puente de protocolos, transporte-agnóstico). Escucha
+// sobre la pila de red activa (WiFi, Ethernet o AP), sin atarse a ninguna.
+struct ModbusTcpConfig {
+  bool enabled = false;
+  uint16_t port = 502;  // puerto TCP de escucha (502 estándar Modbus)
+  uint8_t unitId = 1;   // Unit ID del servidor (Modbus TCP: casi siempre ignorado)
 };
 
 // LoRa (SX1262, módulo Silicontra SX1262PATR8-GC).
@@ -279,6 +312,7 @@ struct Config {
   Ads1115Config ads1115;                   // ADC I²C ADS1115 (opcional)
   ModbusConfig modbus;                     // RS485/Modbus (opcional)
   CanConfig can;                           // CAN/TWAI (opcional)
+  ModbusTcpConfig modbusTcp;               // Modbus TCP servidor (opcional)
   LoraConfig lora;                         // LoRa/SX1262 (opcional)
   ZigbeeConfig zigbee;                     // Zigbee/CC2652P2 (opcional)
   EthernetConfig ethernet;                 // Ethernet LAN8720A/W5500 (opcional)

@@ -8,8 +8,11 @@
 
 namespace base {
 
-// Transceiver RS485: SEMA_MODBUS_TRANSCEIVER (TD501D485H aislado o
-// SN65HVD75DR sin aislar). El control DE/RE es idéntico en ambos.
+// Transceiver RS485 (ModbusTransceiver en ConfigManager.hpp): todos son
+// half-duplex con DE/RE activo-alto y comparten el mismo control de DE/RE
+// (SEMA_PIN_MODBUS_DERE). La única diferencia práctica es el aislamiento
+// galvánico — TD501D485H y ADM2483BRWZ aíslan el bus; MAX3485ED y SN65HVD75DR
+// no. La selección es por tanto informativa: no cambia el código del bus.
 
 static ModbusMaster modbusNode;
 static uint8_t g_deRePin = 0;

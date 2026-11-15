@@ -101,6 +101,9 @@ private:
 #if SEMA_USE_MODBUS
   void onModbus();
 #endif
+#if SEMA_USE_MODBUS_TCP
+  void onModbusTcp();
+#endif
 #if SEMA_USE_CAN
   void onCan();
   void onCanWrite();

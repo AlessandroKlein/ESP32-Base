@@ -152,6 +152,9 @@ void HttpServer::begin(SemaCore& core) {
 #if SEMA_USE_MODBUS
   server_.on("/api/v1/modbus", HTTP_GET, [this]() { onModbus(); });
 #endif
+#if SEMA_USE_MODBUS_TCP
+  server_.on("/api/v1/modbus_tcp", HTTP_GET, [this]() { onModbusTcp(); });
+#endif
 #if SEMA_USE_CAN
   server_.on("/api/v1/can", HTTP_GET, [this]() { onCan(); });
   server_.on("/api/v1/can", HTTP_POST, [this]() { onCanWrite(); });
@@ -1123,7 +1126,7 @@ function usedPins(){
   (cfg.shift_registers||[]).forEach(x=>{if(x.latch_pin)s.add(x.latch_pin)});
   // Pines de buses: solo reservan si el elemento está habilitado.
   const m=cfg.modbus||{};if(m.enabled){[m.rx,m.tx,m.de_re].forEach(p=>{if(p)s.add(p)})}
-  const ca=cfg.can||{};if(ca.enabled){[ca.tx,ca.rx].forEach(p=>{if(p)s.add(p)})}
+  const ca=cfg.can||{};if(ca.enabled){[ca.tx,ca.rx,ca.rs].forEach(p=>{if(p&&p>0)s.add(p)})}
   const l=cfg.lora||{};if(l.enabled){[l.cs,l.rst,l.dio1,l.busy].forEach(p=>{if(p)s.add(p)})}
   const z=cfg.zigbee||{};if(z.enabled){[z.rx,z.tx].forEach(p=>{if(p)s.add(p)})}
   const e=cfg.ethernet||{};if(e.enabled){[e.mdc,e.mdio,e.cs,e.sck,e.miso,e.mosi,e.rst,e.irq].forEach(p=>{if(p&&p>0)s.add(p)})}
@@ -1163,6 +1166,8 @@ function maxOptions(cur,curPort){
   return h;
 }
 function uartPortOf(id){const s=document.getElementById(id);if(!s)return 0;const o=s.options[s.selectedIndex];return (o&&o.getAttribute('data-p'))?parseInt(o.getAttribute('data-p')):0;}
+function mbTcOpts(cur){const o=[['0','NONE'],['1','AUTO'],['2','MAX3485ED'],['3','SN65HVD75DR'],['4','TD501D485H'],['5','ADM2483BRWZ']];let h='';for(const x of o)h+='<option value="'+x[0]+'"'+(cur==x[0]?' selected':'')+'>'+x[1]+'</option>';return h;}
+function canTcOpts(cur){const o=[['0','NONE'],['1','AUTO'],['2','SN65HVD233DR'],['3','SN65HVD234DR']];let h='';for(const x of o)h+='<option value="'+x[0]+'"'+(cur==x[0]?' selected':'')+'>'+x[1]+'</option>';return h;}
 function render(){
   const list=document.getElementById('sensorList');
   const used=usedPins();
@@ -1261,13 +1266,14 @@ async function loadPins(r){
   const y=await(await fetch('/api/v1/system')).json();
   let p='<p>Board: '+y.board+' · Flash: '+y.flash_mb+' MB'+(y.demo?' · <b>DEMO</b>':'')+'</p>';
   p+='<p>Origen de pines: <b>'+(y.pins_from_file?'PCB (fijos)':'Web (configurables)')+'</b></p>';
-  const m=r.modbus||{},ca=r.can||{},l=r.lora||{},z=r.zigbee||{},e=r.ethernet||{},sd=r.storage||{};
+  const m=r.modbus||{},ca=r.can||{},l=r.lora||{},z=r.zigbee||{},e=r.ethernet||{},sd=r.storage||{},mt=r.modbus_tcp||{};
   const used=usedPins();
   p+='<div class="catalog">';
   p+='<div class="cat-item"><span>I²C SDA / SCL</span><span>SDA <select id="busI2cSda">'+pinSel(used,r.i2c_sda||21)+'</select> SCL <select id="busI2cScl">'+pinSel(used,r.i2c_scl||22)+'</select> <button class="sec" onclick="saveI2c()">💾 Guardar I²C</button></span></div>';
   p+='<div class="cat-item"><span>SPI SCK / MISO / MOSI</span><span class="muted">'+y.spi_sck+' / '+y.spi_miso+' / '+y.spi_mosi+' (bus compartido)</span></div>';
-  p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busModEn"'+(m.enabled?' checked':'')+'><span class="sl"></span></label><span>Modbus</span><span>UART <select id="busModUart" style="width:128px">'+maxOptions(m.uart||0,m.uart_port||0)+'</select> RX <select id="busModRx">'+pinSel(used,m.rx||16)+'</select> TX <select id="busModTx">'+pinSel(used,m.tx||17)+'</select></span></div>';
-  p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busCanEn"'+(ca.enabled?' checked':'')+'><span class="sl"></span></label><span>CAN TX / RX</span><span>TX <select id="busCanTx">'+pinSel(used,ca.tx||5)+'</select> RX <select id="busCanRx">'+pinSel(used,ca.rx||4)+'</select></span></div>';
+  p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busModEn"'+(m.enabled?' checked':'')+'><span class="sl"></span></label><span>Modbus</span><span>UART <select id="busModUart" style="width:128px">'+maxOptions(m.uart||0,m.uart_port||0)+'</select> RX <select id="busModRx">'+pinSel(used,m.rx||16)+'</select> TX <select id="busModTx">'+pinSel(used,m.tx||17)+'</select> TC <select id="busModTc">'+mbTcOpts(m.transceiver!=null?m.transceiver:1)+'</select></span></div>';
+  p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busCanEn"'+(ca.enabled?' checked':'')+'><span class="sl"></span></label><span>CAN TX / RX</span><span>TX <select id="busCanTx">'+pinSel(used,ca.tx||5)+'</select> RX <select id="busCanRx">'+pinSel(used,ca.rx||4)+'</select> TC <select id="busCanTc">'+canTcOpts(ca.transceiver!=null?ca.transceiver:1)+'</select> RS <select id="busCanRs">'+pinSel(used,ca.rs||0)+'</select></span></div>';
+  p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busMtcEn"'+(mt.enabled?' checked':'')+'><span class="sl"></span></label><span>Modbus TCP (servidor)</span><span>Puerto <input id="busMtcPort" value="'+(mt.port||502)+'" style="width:70px"></span></div>';
   p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busLoraEn"'+(l.enabled?' checked':'')+'><span class="sl"></span></label><span>LoRa CS / RST / DIO1 / BUSY</span><span>CS <select id="busLoraCs">'+pinSel(used,l.cs||10)+'</select> RST <select id="busLoraRst">'+pinSel(used,l.rst||32)+'</select> DIO1 <select id="busLoraDio1">'+pinSel(used,l.dio1||26)+'</select> BUSY <select id="busLoraBusy">'+pinSel(used,l.busy||27)+'</select></span></div>';
   p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busZigEn"'+(z.enabled?' checked':'')+'><span class="sl"></span></label><span>Zigbee</span><span>UART <select id="busZigUart" style="width:128px">'+maxOptions(z.uart||0,z.uart_port||0)+'</select> RX <select id="busZigRx">'+pinSel(used,z.rx||18)+'</select> TX <select id="busZigTx">'+pinSel(used,z.tx||19)+'</select></span></div>';
   p+='<div class="cat-item"><span>microSD CS (SPI)</span><span>CS <select id="busSdCs">'+pinSel(used,sd.sd_cs||4)+'</select></span></div>';
@@ -1290,8 +1296,9 @@ async function saveBuses(){
   const ecs=g('busEthCs');if(ecs)eth.cs=parseInt(ecs.value)||5;
   const b={
     sd_cs:parseInt(g('busSdCs').value)||4,
-    modbus:{enabled:g('busModEn').checked,rx:parseInt(g('busModRx').value)||16,tx:parseInt(g('busModTx').value)||17,de_re:0,uart:parseInt(g('busModUart').value)||0,uart_port:uartPortOf('busModUart')},
-    can:{enabled:g('busCanEn').checked,tx:parseInt(g('busCanTx').value)||5,rx:parseInt(g('busCanRx').value)||4},
+    modbus:{enabled:g('busModEn').checked,rx:parseInt(g('busModRx').value)||16,tx:parseInt(g('busModTx').value)||17,de_re:0,uart:parseInt(g('busModUart').value)||0,uart_port:uartPortOf('busModUart'),transceiver:parseInt(g('busModTc').value)||0},
+    can:{enabled:g('busCanEn').checked,tx:parseInt(g('busCanTx').value)||5,rx:parseInt(g('busCanRx').value)||4,transceiver:parseInt(g('busCanTc').value)||0,rs:parseInt(g('busCanRs').value)||0},
+    modbus_tcp:{enabled:g('busMtcEn').checked,port:parseInt(g('busMtcPort').value)||502,unit_id:1},
     lora:{enabled:g('busLoraEn').checked,cs:parseInt(g('busLoraCs').value)||10,rst:parseInt(g('busLoraRst').value)||14,dio1:parseInt(g('busLoraDio1').value)||26,busy:parseInt(g('busLoraBusy').value)||27},
     zigbee:{enabled:g('busZigEn').checked,rx:parseInt(g('busZigRx').value)||18,tx:parseInt(g('busZigTx').value)||19,uart:parseInt(g('busZigUart').value)||0,uart_port:uartPortOf('busZigUart')},
     ethernet:eth
@@ -1657,6 +1664,7 @@ void HttpServer::onSystem() {
   doc["sc18is602b_enabled"] = (SEMA_USE_SC18IS602B != 0);
   doc["tca9548a_enabled"] = (SEMA_USE_TCA9548A != 0);
   doc["ads1115_enabled"] = (SEMA_USE_ADS1115 != 0);
+  doc["modbus_tcp_enabled"] = (SEMA_USE_MODBUS_TCP != 0);
   doc["esp_temp"] = temperatureRead() - 10.0f;  // corrección aproximada del sensor interno
   doc["restart_count"] = core_->restartCount();
   doc["reset_reason"] = esp_reset_reason();
@@ -1983,6 +1991,7 @@ void HttpServer::onConfigBuses() {
   // `enabled` se aplica siempre (encender/apagar en runtime); los pines solo si no están bloqueados.
   if (doc.containsKey("modbus")) {
     next.modbus.enabled = doc["modbus"]["enabled"] | false;
+    next.modbus.transceiver = static_cast<ModbusTransceiver>(doc["modbus"]["transceiver"] | 1);
     if (!pinsLocked) {
       next.modbus.rxPin = doc["modbus"]["rx"] | 16;
       next.modbus.txPin = doc["modbus"]["tx"] | 17;
@@ -1993,10 +2002,17 @@ void HttpServer::onConfigBuses() {
   }
   if (doc.containsKey("can")) {
     next.can.enabled = doc["can"]["enabled"] | false;
+    next.can.transceiver = static_cast<CanTransceiver>(doc["can"]["transceiver"] | 1);
     if (!pinsLocked) {
       next.can.txPin = doc["can"]["tx"] | 5;
       next.can.rxPin = doc["can"]["rx"] | 4;
+      next.can.rsPin = doc["can"]["rs"] | 0;
     }
+  }
+  if (doc.containsKey("modbus_tcp")) {
+    next.modbusTcp.enabled = doc["modbus_tcp"]["enabled"] | false;
+    next.modbusTcp.port = doc["modbus_tcp"]["port"] | 502;
+    next.modbusTcp.unitId = doc["modbus_tcp"]["unit_id"] | 1;
   }
   if (doc.containsKey("lora")) {
     next.lora.enabled = doc["lora"]["enabled"] | false;
@@ -2219,6 +2235,9 @@ void HttpServer::onConfigPut() {
 #endif
 #if SEMA_USE_CAN
     core_->applyCan();
+#endif
+#if SEMA_USE_MODBUS_TCP
+    core_->applyModbusTcp();
 #endif
 #if SEMA_USE_LORA
     core_->applyLora();
@@ -2941,6 +2960,21 @@ void HttpServer::onModbus() {
   for (uint16_t v : core_->modbus().values()) {
     arr.add(v);
   }
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+#endif
+
+#if SEMA_USE_MODBUS_TCP
+void HttpServer::onModbusTcp() {
+  DynamicJsonDocument doc(512);
+  doc["ready"] = core_->modbusTcp().ready();
+  doc["enabled"] = core_->config().get().modbusTcp.enabled;
+  doc["port"] = core_->config().get().modbusTcp.port;
+  doc["unit_id"] = core_->config().get().modbusTcp.unitId;
+  doc["holding_count"] = ModbusTcpManager::kHoldingCount;
+  doc["coil_count"] = ModbusTcpManager::kCoilCount;
   String out;
   serializeJson(doc, out);
   server_.send(200, "application/json", out);
