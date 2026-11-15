@@ -19,6 +19,18 @@
 #if SEMA_USE_PCF8574
 #include "core/Pcf8574Manager.hpp"
 #endif
+#if SEMA_USE_SC16IS752
+#include "core/Sc16is752Manager.hpp"
+#endif
+#if SEMA_USE_SC18IS602B
+#include "core/Sc18is602bManager.hpp"
+#endif
+#if SEMA_USE_TCA9548A
+#include "core/Tca9548aManager.hpp"
+#endif
+#if SEMA_USE_ADS1115
+#include "core/Ads1115Manager.hpp"
+#endif
 #if SEMA_USE_MODBUS
 #include "core/ModbusManager.hpp"
 #endif
@@ -84,6 +96,18 @@ public:
 #if SEMA_USE_PCF8574
   void applyPcf8574();
 #endif
+#if SEMA_USE_SC16IS752
+  void applySc16is752();
+#endif
+#if SEMA_USE_SC18IS602B
+  void applySc18is602b();
+#endif
+#if SEMA_USE_TCA9548A
+  void applyTca9548a();
+#endif
+#if SEMA_USE_ADS1115
+  void applyAds1115();
+#endif
 #if SEMA_USE_MODBUS
   void applyModbus();
 #endif
@@ -127,6 +151,18 @@ public:
 #if SEMA_USE_PCF8574
   Pcf8574Manager& pcf8574() { return pcf8574_; }
 #endif
+#if SEMA_USE_SC16IS752
+  Sc16is752Manager& sc16is752() { return sc16is752_; }
+#endif
+#if SEMA_USE_SC18IS602B
+  Sc18is602bManager& sc18is602b() { return sc18is602b_; }
+#endif
+#if SEMA_USE_TCA9548A
+  Tca9548aManager& tca9548a() { return tca9548a_; }
+#endif
+#if SEMA_USE_ADS1115
+  Ads1115Manager& ads1115() { return ads1115_; }
+#endif
   uint32_t restartCount() const { return restartCount_; }
 #if SEMA_USE_MODBUS
   ModbusManager& modbus() { return modbus_; }
@@ -168,6 +204,18 @@ private:
 #endif
 #if SEMA_USE_PCF8574
   Pcf8574Manager pcf8574_;
+#endif
+#if SEMA_USE_SC16IS752
+  Sc16is752Manager sc16is752_;
+#endif
+#if SEMA_USE_SC18IS602B
+  Sc18is602bManager sc18is602b_;
+#endif
+#if SEMA_USE_TCA9548A
+  Tca9548aManager tca9548a_;
+#endif
+#if SEMA_USE_ADS1115
+  Ads1115Manager ads1115_;
 #endif
 #if SEMA_USE_MODBUS
   ModbusManager modbus_;

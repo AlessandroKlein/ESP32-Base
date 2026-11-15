@@ -82,6 +82,22 @@ private:
   void onPcf8574();
   void onPcf8574Write();
 #endif
+#if SEMA_USE_SC16IS752
+  void onSc16is752();
+  void onSc16is752Write();
+#endif
+#if SEMA_USE_SC18IS602B
+  void onSc18is602b();
+  void onSc18is602bWrite();
+#endif
+#if SEMA_USE_TCA9548A
+  void onTca9548a();
+  void onTca9548aWrite();
+#endif
+#if SEMA_USE_ADS1115
+  void onAds1115();
+  void onAds1115Write();
+#endif
 #if SEMA_USE_MODBUS
   void onModbus();
 #endif

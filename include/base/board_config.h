@@ -76,6 +76,18 @@
 #ifndef SEMA_USE_PCF8574
 #define SEMA_USE_PCF8574 SEMA_OFF
 #endif
+#ifndef SEMA_USE_SC16IS752
+#define SEMA_USE_SC16IS752 SEMA_OFF
+#endif
+#ifndef SEMA_USE_SC18IS602B
+#define SEMA_USE_SC18IS602B SEMA_OFF
+#endif
+#ifndef SEMA_USE_TCA9548A
+#define SEMA_USE_TCA9548A SEMA_OFF
+#endif
+#ifndef SEMA_USE_ADS1115
+#define SEMA_USE_ADS1115 SEMA_OFF
+#endif
 
 // --- Transceiver RS485 ---
 #ifndef SEMA_MODBUS_ISOLATED

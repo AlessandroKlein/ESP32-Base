@@ -133,6 +133,22 @@ void HttpServer::begin(SemaCore& core) {
   server_.on("/api/v1/pcf8574", HTTP_GET, [this]() { onPcf8574(); });
   server_.on("/api/v1/pcf8574", HTTP_POST, [this]() { onPcf8574Write(); });
 #endif
+#if SEMA_USE_SC16IS752
+  server_.on("/api/v1/sc16is752", HTTP_GET, [this]() { onSc16is752(); });
+  server_.on("/api/v1/sc16is752", HTTP_POST, [this]() { onSc16is752Write(); });
+#endif
+#if SEMA_USE_SC18IS602B
+  server_.on("/api/v1/sc18is602b", HTTP_GET, [this]() { onSc18is602b(); });
+  server_.on("/api/v1/sc18is602b", HTTP_POST, [this]() { onSc18is602bWrite(); });
+#endif
+#if SEMA_USE_TCA9548A
+  server_.on("/api/v1/tca9548a", HTTP_GET, [this]() { onTca9548a(); });
+  server_.on("/api/v1/tca9548a", HTTP_POST, [this]() { onTca9548aWrite(); });
+#endif
+#if SEMA_USE_ADS1115
+  server_.on("/api/v1/ads1115", HTTP_GET, [this]() { onAds1115(); });
+  server_.on("/api/v1/ads1115", HTTP_POST, [this]() { onAds1115Write(); });
+#endif
 #if SEMA_USE_MODBUS
   server_.on("/api/v1/modbus", HTTP_GET, [this]() { onModbus(); });
 #endif
@@ -1087,10 +1103,14 @@ let shiftEnabled=false;
 let mcpEnabled=false;
 let pcaEnabled=false;
 let pcfEnabled=false;
+let sc16Enabled=false;
+let sc18Enabled=false;
+let tcaEnabled=false;
+let adsEnabled=false;
 let reservedPins=new Set();
 let pinsLocked=false;
 let pinsFromFile=false;
-async function load(){try{const r=await(await fetch('/api/v1/config')).json();cfg=r;try{const y=await(await fetch('/api/v1/system')).json();shiftEnabled=!!y.shift_enabled;mcpEnabled=!!y.mcp23s17_enabled;pcaEnabled=!!y.pca9685_enabled;pcfEnabled=!!y.pcf8574_enabled;reservedPins=new Set(y.reserved_pins||[]);pinsFromFile=!!y.pins_from_file;pinsLocked=pinsFromFile||!y.ap_mode}catch(e){}render();loadPins(r);renderIo()}catch(e){document.getElementById('sensorList').innerHTML='<p class="muted">Error al cargar</p>'}}
+async function load(){try{const r=await(await fetch('/api/v1/config')).json();cfg=r;try{const y=await(await fetch('/api/v1/system')).json();shiftEnabled=!!y.shift_enabled;mcpEnabled=!!y.mcp23s17_enabled;pcaEnabled=!!y.pca9685_enabled;pcfEnabled=!!y.pcf8574_enabled;sc16Enabled=!!y.sc16is752_enabled;sc18Enabled=!!y.sc18is602b_enabled;tcaEnabled=!!y.tca9548a_enabled;adsEnabled=!!y.ads1115_enabled;reservedPins=new Set(y.reserved_pins||[]);pinsFromFile=!!y.pins_from_file;pinsLocked=pinsFromFile||!y.ap_mode}catch(e){}render();loadPins(r);renderIo()}catch(e){document.getElementById('sensorList').innerHTML='<p class="muted">Error al cargar</p>'}}
 function usedPins(){
   const s=new Set();
   // Solo pines "únicos" (punto a punto): PIN analógico/pulsos y RX/TX de UART.
@@ -1351,6 +1371,38 @@ function renderIo(){
     h+='</span></div>';
     h+='</div>';
   }
+  if(sc16Enabled){
+    h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">SC16IS752 — UART dual I²C <span class="q" title="2 puertos UART (A/B) por bus I²C. Comparten el mismo baudrate.">?</span></div>';
+    h+='<div class="catalog">';
+    const sc16Addr=cfg.sc16is752_addr||0, sc16Baud=cfg.sc16is752_baud||9600;
+    h+='<div class="cat-item"><span>Dirección I²C</span>'+hexSel('sc16Addr',sc16Addr,0x48,16)+'<span class="muted">Baudios</span><input id="sc16Baud" value="'+sc16Baud+'" style="width:72px"></div>';
+    h+='</div>';
+  }
+  if(sc18Enabled){
+    h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">SC18IS602B — puente I²C→SPI <span class="q" title="Expone un bus SPI maestro por I²C. El reloj SPI se mapea a una velocidad fija (58-1843 kHz).">?</span></div>';
+    h+='<div class="catalog">';
+    const sc18Addr=cfg.sc18is602b_addr||0, sc18Clk=cfg.sc18is602b_spi_clock||100000, sc18Mode=cfg.sc18is602b_spi_mode||0;
+    let sc18Modes='';for(let i=0;i<4;i++){sc18Modes+='<option value="'+i+'"'+(sc18Mode==i?' selected':'')+'>'+i+'</option>';}
+    h+='<div class="cat-item"><span>Dirección I²C</span>'+hexSel('sc18Addr',sc18Addr,0x28,8)+'<span class="muted">Reloj (Hz)</span><input id="sc18Clk" value="'+sc18Clk+'" style="width:72px"><span class="muted">Modo</span><select id="sc18Mode">'+sc18Modes+'</select></div>';
+    h+='</div>';
+  }
+  if(tcaEnabled){
+    h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">TCA9548A — mux I²C (8 canales) <span class="q" title="Multiplexa el bus I²C en 8 canales. Permite varios dispositivos con la misma dirección.">?</span></div>';
+    h+='<div class="catalog">';
+    const tcaAddr=cfg.tca9548a_addr||0, tcaCh=cfg.tca9548a_channel||0;
+    let tcaOpts='';for(let i=0;i<8;i++){tcaOpts+='<option value="'+i+'"'+(tcaCh==i?' selected':'')+'>'+i+'</option>';}
+    h+='<div class="cat-item"><span>Dirección I²C</span>'+hexSel('tcaAddr',tcaAddr,0x70,8)+'<span class="muted">Canal</span><select id="tcaCh">'+tcaOpts+'</select></div>';
+    h+='</div>';
+  }
+  if(adsEnabled){
+    h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">ADS1115 — ADC 16-bit (4 canales) <span class="q" title="ADC de precisión por I²C (A0-A3). Marca los canales a leer.">?</span></div>';
+    h+='<div class="catalog">';
+    const adsAddr=cfg.ads1115_addr||0, adsCh=cfg.ads1115_channels||[];
+    h+='<div class="cat-item"><span>Dirección I²C</span>'+hexSel('adsAddr',adsAddr,0x48,4)+'<span class="muted">Canales A0-A3</span>';
+    for(let i=0;i<4;i++){h+='<label style="font-size:.62rem;margin-right:.2rem">A'+i+'<input type="checkbox" id="ad'+i+'" '+((adsCh[i])?'checked':'')+'></label>';}
+    h+='</div>';
+    h+='</div>';
+  }
   list.innerHTML=h;
   applyPinLock();
 }
@@ -1409,6 +1461,25 @@ function saveIo(){
     body.pcf8574_addr=parseInt(document.getElementById('pcfAddr').value)||0;
     body.pcf8574_type=document.getElementById('pcfType').value;
     body.pcf8574_pins=pins;
+  }
+  if(sc16Enabled){
+    body.sc16is752_addr=parseInt(document.getElementById('sc16Addr').value)||0;
+    body.sc16is752_baud=parseInt(document.getElementById('sc16Baud').value)||9600;
+  }
+  if(sc18Enabled){
+    body.sc18is602b_addr=parseInt(document.getElementById('sc18Addr').value)||0;
+    body.sc18is602b_spi_clock=parseInt(document.getElementById('sc18Clk').value)||100000;
+    body.sc18is602b_spi_mode=parseInt(document.getElementById('sc18Mode').value)||0;
+  }
+  if(tcaEnabled){
+    body.tca9548a_addr=parseInt(document.getElementById('tcaAddr').value)||0;
+    body.tca9548a_channel=parseInt(document.getElementById('tcaCh').value)||0;
+  }
+  if(adsEnabled){
+    const ch=[];
+    for(let i=0;i<4;i++){ ch.push(document.getElementById('ad'+i).checked?1:0); }
+    body.ads1115_addr=parseInt(document.getElementById('adsAddr').value)||0;
+    body.ads1115_channels=ch;
   }
   fetch('/api/v1/config/io',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>uiAlert(r.ok?'Guardado':'Error')).catch(()=>uiAlert('Error de red'));
 }
@@ -1582,6 +1653,10 @@ void HttpServer::onSystem() {
   doc["mcp23s17_enabled"] = (SEMA_USE_MCP23S17 != 0);
   doc["pca9685_enabled"] = (SEMA_USE_PCA9685 != 0);
   doc["pcf8574_enabled"] = (SEMA_USE_PCF8574 != 0);
+  doc["sc16is752_enabled"] = (SEMA_USE_SC16IS752 != 0);
+  doc["sc18is602b_enabled"] = (SEMA_USE_SC18IS602B != 0);
+  doc["tca9548a_enabled"] = (SEMA_USE_TCA9548A != 0);
+  doc["ads1115_enabled"] = (SEMA_USE_ADS1115 != 0);
   doc["esp_temp"] = temperatureRead() - 10.0f;  // corrección aproximada del sensor interno
   doc["restart_count"] = core_->restartCount();
   doc["reset_reason"] = esp_reset_reason();
@@ -1795,6 +1870,26 @@ void HttpServer::onConfigIo() {
       next.pcf8574.pinModes[i] = pf[i] | 0;
     }
   }
+  if (doc.containsKey("sc16is752_addr")) {
+    next.sc16is752.address = doc["sc16is752_addr"] | 0;
+    next.sc16is752.baudrate = doc["sc16is752_baud"] | 9600;
+  }
+  if (doc.containsKey("sc18is602b_addr")) {
+    next.sc18is602b.address = doc["sc18is602b_addr"] | 0;
+    next.sc18is602b.spiClock = doc["sc18is602b_spi_clock"] | 100000;
+    next.sc18is602b.spiMode = doc["sc18is602b_spi_mode"] | 0;
+  }
+  if (doc.containsKey("tca9548a_addr")) {
+    next.tca9548a.address = doc["tca9548a_addr"] | 0;
+    next.tca9548a.activeChannel = doc["tca9548a_channel"] | 0;
+  }
+  if (doc.containsKey("ads1115_addr")) {
+    next.ads1115.address = doc["ads1115_addr"] | 0;
+    JsonArray ad = doc["ads1115_channels"].as<JsonArray>();
+    for (int i = 0; i < 4 && i < static_cast<int>(ad.size()); ++i) {
+      next.ads1115.channels[i] = ad[i] | 0;
+    }
+  }
 #if SEMA_USE_SHIFT
   if (!pinsLocked && doc.containsKey("shift_registers")) {
     next.shiftRegisters.clear();
@@ -1848,6 +1943,18 @@ void HttpServer::onConfigIo() {
 #endif
 #if SEMA_USE_PCF8574
   core_->applyPcf8574();
+#endif
+#if SEMA_USE_SC16IS752
+  core_->applySc16is752();
+#endif
+#if SEMA_USE_SC18IS602B
+  core_->applySc18is602b();
+#endif
+#if SEMA_USE_TCA9548A
+  core_->applyTca9548a();
+#endif
+#if SEMA_USE_ADS1115
+  core_->applyAds1115();
 #endif
   server_.send(200, "application/json", "{\"ok\":true}");
 }
@@ -2673,6 +2780,154 @@ void HttpServer::onPcf8574Write() {
   const int value = doc["value"] | 0;
   core_->pcf8574().digitalWrite(pin, value);
   server_.send(200, "application/json", "{\"ok\":true}");
+}
+#endif
+
+#if SEMA_USE_SC16IS752
+void HttpServer::onSc16is752() {
+  DynamicJsonDocument doc(512);
+  doc["ready"] = core_->sc16is752().ready();
+  doc["address"] = core_->sc16is752().config().address;
+  doc["baudrate"] = core_->sc16is752().config().baudrate;
+  doc["available_a"] = core_->sc16is752().available(0);  // canal A
+  doc["available_b"] = core_->sc16is752().available(1);  // canal B
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void HttpServer::onSc16is752Write() {
+  if (!webAuthed()) {
+    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  if (!server_.hasArg("plain")) {
+    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
+    return;
+  }
+  DynamicJsonDocument doc(512);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  const uint8_t channel = doc["channel"] | 0;
+  uint8_t buf[64];
+  size_t n = 0;
+  JsonArray arr = doc["data"].as<JsonArray>();
+  for (JsonVariant v : arr) {
+    if (n >= sizeof(buf)) {
+      break;
+    }
+    buf[n++] = v.as<uint8_t>();
+  }
+  core_->sc16is752().write(channel, buf, n);
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+#endif
+
+#if SEMA_USE_SC18IS602B
+void HttpServer::onSc18is602b() {
+  DynamicJsonDocument doc(512);
+  doc["ready"] = core_->sc18is602b().ready();
+  doc["address"] = core_->sc18is602b().config().address;
+  doc["spi_clock"] = core_->sc18is602b().config().spiClock;
+  doc["spi_mode"] = core_->sc18is602b().config().spiMode;
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void HttpServer::onSc18is602bWrite() {
+  if (!webAuthed()) {
+    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  if (!server_.hasArg("plain")) {
+    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
+    return;
+  }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  const uint8_t slave = doc["slave"] | 0;
+  const uint8_t value = doc["value"] | 0;
+  uint8_t rx = 0;
+  core_->sc18is602b().spiTransfer(slave, &value, 1, &rx);
+  DynamicJsonDocument out(128);
+  out["rx"] = rx;
+  String s;
+  serializeJson(out, s);
+  server_.send(200, "application/json", s);
+}
+#endif
+
+#if SEMA_USE_TCA9548A
+void HttpServer::onTca9548a() {
+  DynamicJsonDocument doc(512);
+  doc["ready"] = core_->tca9548a().ready();
+  doc["address"] = core_->tca9548a().config().address;
+  doc["active_channel"] = core_->tca9548a().config().activeChannel;
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void HttpServer::onTca9548aWrite() {
+  if (!webAuthed()) {
+    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  if (!server_.hasArg("plain")) {
+    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
+    return;
+  }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  const uint8_t channel = doc["channel"] | 0;
+  core_->tca9548a().selectChannel(channel);
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+#endif
+
+#if SEMA_USE_ADS1115
+void HttpServer::onAds1115() {
+  DynamicJsonDocument doc(512);
+  doc["ready"] = core_->ads1115().ready();
+  doc["address"] = core_->ads1115().config().address;
+  JsonArray arr = doc.createNestedArray("readings");
+  for (uint8_t i = 0; i < 4; ++i) {
+    arr.add(core_->ads1115().readChannel(i));
+  }
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void HttpServer::onAds1115Write() {
+  if (!webAuthed()) {
+    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  if (!server_.hasArg("plain")) {
+    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
+    return;
+  }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  const uint8_t channel = doc["channel"] | 0;
+  DynamicJsonDocument out(128);
+  out["raw"] = core_->ads1115().readChannel(channel);
+  String s;
+  serializeJson(out, s);
+  server_.send(200, "application/json", s);
 }
 #endif
 

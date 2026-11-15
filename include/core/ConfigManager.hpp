@@ -150,6 +150,7 @@ struct SpiExpanderConfig {
   String type = "MAX14830";  // "MAX14830" (UART) | "SC18IS602B" (I²C)
   uint8_t csPin = 0;         // chip select SPI (0 = no usar)
 };
+// ponytail: MAX14830 (quad UART SPI) sin librería en registry — driver diferido; SpiExpanderConfig.type="MAX14830" es placeholder.
 
 // PCA9685 — expansor PWM por I²C (16 canales) para válvulas/dimmers/servos.
 struct Pca9685Config {
@@ -163,6 +164,31 @@ struct Pcf8574Config {
   uint8_t address = 0;           // dirección I²C (0 = no usar; típico 0x20)
   String type = "PCF8574";       // "PCF8574" (8 pines) | "PCF8575" (16 pines)
   uint8_t pinModes[16] = {0};    // 0=no usado, 1=salida, 2=entrada
+};
+
+// SC16IS752 — UART dual por I²C (2 puertos UART A/B).
+struct Sc16is752Config {
+  uint8_t address = 0;        // dirección I²C (0 = no usar; típico 0x48)
+  uint32_t baudrate = 9600;   // baudios de los 2 UART
+};
+
+// SC18IS602B — puente I²C→SPI (SPI maestro a través del bus I²C).
+struct Sc18is602bConfig {
+  uint8_t address = 0;        // dirección I²C (0 = no usar; típico 0x28)
+  uint32_t spiClock = 100000; // reloj SPI (Hz)
+  uint8_t spiMode = 0;        // modo SPI 0..3
+};
+
+// TCA9548A — mux I²C de 8 canales.
+struct Tca9548aConfig {
+  uint8_t address = 0;        // dirección I²C (0 = no usar; típico 0x70)
+  uint8_t activeChannel = 0;  // canal activo 0..7
+};
+
+// ADS1115 — ADC 16-bit de 4 canales por I²C (A0-A3).
+struct Ads1115Config {
+  uint8_t address = 0;           // dirección I²C (0 = no usar; típico 0x48)
+  uint8_t channels[4] = {0};     // 0=no usado, 1=leer ese canal (A0-A3)
 };
 
 // RS485 / Modbus RTU (maestro de un esclavo).
@@ -247,6 +273,10 @@ struct Config {
   std::vector<SpiExpanderConfig> spiExpanders;       // expansores SPI (MAX14830/SC18IS602B)
   Pca9685Config pca9685;                   // expansor PWM PCA9685 (opcional)
   Pcf8574Config pcf8574;                   // expansor GPIO PCF8574/8575 (opcional)
+  Sc16is752Config sc16is752;               // UART dual I²C SC16IS752 (opcional)
+  Sc18is602bConfig sc18is602b;             // puente I²C→SPI SC18IS602B (opcional)
+  Tca9548aConfig tca9548a;                 // mux I²C TCA9548A (opcional)
+  Ads1115Config ads1115;                   // ADC I²C ADS1115 (opcional)
   ModbusConfig modbus;                     // RS485/Modbus (opcional)
   CanConfig can;                           // CAN/TWAI (opcional)
   LoraConfig lora;                         // LoRa/SX1262 (opcional)

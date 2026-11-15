@@ -125,6 +125,18 @@ void SemaCore::setup() {
 #if SEMA_USE_PCF8574
   pcf8574_.apply(config_.get().pcf8574);
 #endif
+#if SEMA_USE_SC16IS752
+  sc16is752_.apply(config_.get().sc16is752);
+#endif
+#if SEMA_USE_SC18IS602B
+  sc18is602b_.apply(config_.get().sc18is602b);
+#endif
+#if SEMA_USE_TCA9548A
+  tca9548a_.apply(config_.get().tca9548a);
+#endif
+#if SEMA_USE_ADS1115
+  ads1115_.apply(config_.get().ads1115);
+#endif
 
   // Bus SPI compartido (W5500 + LoRa + MCP23S17): inicializar una única vez.
 #if SEMA_USE_LORA || SEMA_USE_ETHERNET || SEMA_USE_MCP23S17
@@ -324,6 +336,30 @@ void SemaCore::applyPca9685() {
 #if SEMA_USE_PCF8574
 void SemaCore::applyPcf8574() {
   pcf8574_.apply(config_.get().pcf8574);
+}
+#endif
+
+#if SEMA_USE_SC16IS752
+void SemaCore::applySc16is752() {
+  sc16is752_.apply(config_.get().sc16is752);
+}
+#endif
+
+#if SEMA_USE_SC18IS602B
+void SemaCore::applySc18is602b() {
+  sc18is602b_.apply(config_.get().sc18is602b);
+}
+#endif
+
+#if SEMA_USE_TCA9548A
+void SemaCore::applyTca9548a() {
+  tca9548a_.apply(config_.get().tca9548a);
+}
+#endif
+
+#if SEMA_USE_ADS1115
+void SemaCore::applyAds1115() {
+  ads1115_.apply(config_.get().ads1115);
 }
 #endif
 
