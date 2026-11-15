@@ -40,6 +40,9 @@
 #if SEMA_USE_MODBUS_TCP
 #include "core/ModbusTcpManager.hpp"
 #endif
+#if SEMA_USE_BACNET
+#include "core/BacnetManager.hpp"
+#endif
 #if SEMA_USE_LORA
 #include "core/LoraManager.hpp"
 #endif
@@ -120,6 +123,9 @@ public:
 #if SEMA_USE_MODBUS_TCP
   void applyModbusTcp();
 #endif
+#if SEMA_USE_BACNET
+  void applyBacnet();
+#endif
 #if SEMA_USE_LORA
   void applyLora();
 #endif
@@ -179,6 +185,9 @@ public:
 #if SEMA_USE_MODBUS_TCP
   ModbusTcpManager& modbusTcp() { return modbusTcp_; }
 #endif
+#if SEMA_USE_BACNET
+  BacnetManager& bacnet() { return bacnet_; }
+#endif
 #if SEMA_USE_LORA
   LoraManager& lora() { return lora_; }
 #endif
@@ -234,6 +243,9 @@ private:
 #endif
 #if SEMA_USE_MODBUS_TCP
   ModbusTcpManager modbusTcp_;
+#endif
+#if SEMA_USE_BACNET
+  BacnetManager bacnet_;
 #endif
 #if SEMA_USE_LORA
   LoraManager lora_;

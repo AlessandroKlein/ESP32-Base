@@ -155,6 +155,9 @@ void HttpServer::begin(SemaCore& core) {
 #if SEMA_USE_MODBUS_TCP
   server_.on("/api/v1/modbus_tcp", HTTP_GET, [this]() { onModbusTcp(); });
 #endif
+#if SEMA_USE_BACNET
+  server_.on("/api/v1/bacnet", HTTP_GET, [this]() { onBacnet(); });
+#endif
 #if SEMA_USE_CAN
   server_.on("/api/v1/can", HTTP_GET, [this]() { onCan(); });
   server_.on("/api/v1/can", HTTP_POST, [this]() { onCanWrite(); });
@@ -1266,7 +1269,7 @@ async function loadPins(r){
   const y=await(await fetch('/api/v1/system')).json();
   let p='<p>Board: '+y.board+' · Flash: '+y.flash_mb+' MB'+(y.demo?' · <b>DEMO</b>':'')+'</p>';
   p+='<p>Origen de pines: <b>'+(y.pins_from_file?'PCB (fijos)':'Web (configurables)')+'</b></p>';
-  const m=r.modbus||{},ca=r.can||{},l=r.lora||{},z=r.zigbee||{},e=r.ethernet||{},sd=r.storage||{},mt=r.modbus_tcp||{};
+  const m=r.modbus||{},ca=r.can||{},l=r.lora||{},z=r.zigbee||{},e=r.ethernet||{},sd=r.storage||{},mt=r.modbus_tcp||{},b=r.bacnet||{};
   const used=usedPins();
   p+='<div class="catalog">';
   p+='<div class="cat-item"><span>I²C SDA / SCL</span><span>SDA <select id="busI2cSda">'+pinSel(used,r.i2c_sda||21)+'</select> SCL <select id="busI2cScl">'+pinSel(used,r.i2c_scl||22)+'</select> <button class="sec" onclick="saveI2c()">💾 Guardar I²C</button></span></div>';
@@ -1274,6 +1277,7 @@ async function loadPins(r){
   p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busModEn"'+(m.enabled?' checked':'')+'><span class="sl"></span></label><span>Modbus</span><span>UART <select id="busModUart" style="width:128px">'+maxOptions(m.uart||0,m.uart_port||0)+'</select> RX <select id="busModRx">'+pinSel(used,m.rx||16)+'</select> TX <select id="busModTx">'+pinSel(used,m.tx||17)+'</select> TC <select id="busModTc">'+mbTcOpts(m.transceiver!=null?m.transceiver:1)+'</select></span></div>';
   p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busCanEn"'+(ca.enabled?' checked':'')+'><span class="sl"></span></label><span>CAN TX / RX</span><span>TX <select id="busCanTx">'+pinSel(used,ca.tx||5)+'</select> RX <select id="busCanRx">'+pinSel(used,ca.rx||4)+'</select> TC <select id="busCanTc">'+canTcOpts(ca.transceiver!=null?ca.transceiver:1)+'</select> RS <select id="busCanRs">'+pinSel(used,ca.rs||0)+'</select></span></div>';
   p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busMtcEn"'+(mt.enabled?' checked':'')+'><span class="sl"></span></label><span>Modbus TCP (servidor)</span><span>Puerto <input id="busMtcPort" value="'+(mt.port||502)+'" style="width:70px"></span></div>';
+  p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busBacEn"'+(b.enabled?' checked':'')+'><span class="sl"></span></label><span>BACnet/IP (servidor)</span><span>Instancia <input id="busBacDev" value="'+(b.device_instance||1000)+'" style="width:70px"> Puerto <input id="busBacPort" value="'+(b.udp_port||47808)+'" style="width:70px"></span></div>';
   p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busLoraEn"'+(l.enabled?' checked':'')+'><span class="sl"></span></label><span>LoRa CS / RST / DIO1 / BUSY</span><span>CS <select id="busLoraCs">'+pinSel(used,l.cs||10)+'</select> RST <select id="busLoraRst">'+pinSel(used,l.rst||32)+'</select> DIO1 <select id="busLoraDio1">'+pinSel(used,l.dio1||26)+'</select> BUSY <select id="busLoraBusy">'+pinSel(used,l.busy||27)+'</select></span></div>';
   p+='<div class="cat-item"><label class="switch"><input type="checkbox" id="busZigEn"'+(z.enabled?' checked':'')+'><span class="sl"></span></label><span>Zigbee</span><span>UART <select id="busZigUart" style="width:128px">'+maxOptions(z.uart||0,z.uart_port||0)+'</select> RX <select id="busZigRx">'+pinSel(used,z.rx||18)+'</select> TX <select id="busZigTx">'+pinSel(used,z.tx||19)+'</select></span></div>';
   p+='<div class="cat-item"><span>microSD CS (SPI)</span><span>CS <select id="busSdCs">'+pinSel(used,sd.sd_cs||4)+'</select></span></div>';
@@ -1299,6 +1303,7 @@ async function saveBuses(){
     modbus:{enabled:g('busModEn').checked,rx:parseInt(g('busModRx').value)||16,tx:parseInt(g('busModTx').value)||17,de_re:0,uart:parseInt(g('busModUart').value)||0,uart_port:uartPortOf('busModUart'),transceiver:parseInt(g('busModTc').value)||0},
     can:{enabled:g('busCanEn').checked,tx:parseInt(g('busCanTx').value)||5,rx:parseInt(g('busCanRx').value)||4,transceiver:parseInt(g('busCanTc').value)||0,rs:parseInt(g('busCanRs').value)||0},
     modbus_tcp:{enabled:g('busMtcEn').checked,port:parseInt(g('busMtcPort').value)||502,unit_id:1},
+    bacnet:{enabled:g('busBacEn').checked,device_instance:parseInt(g('busBacDev').value)||1000,network_number:0,udp_port:parseInt(g('busBacPort').value)||47808},
     lora:{enabled:g('busLoraEn').checked,cs:parseInt(g('busLoraCs').value)||10,rst:parseInt(g('busLoraRst').value)||14,dio1:parseInt(g('busLoraDio1').value)||26,busy:parseInt(g('busLoraBusy').value)||27},
     zigbee:{enabled:g('busZigEn').checked,rx:parseInt(g('busZigRx').value)||18,tx:parseInt(g('busZigTx').value)||19,uart:parseInt(g('busZigUart').value)||0,uart_port:uartPortOf('busZigUart')},
     ethernet:eth
@@ -1665,6 +1670,7 @@ void HttpServer::onSystem() {
   doc["tca9548a_enabled"] = (SEMA_USE_TCA9548A != 0);
   doc["ads1115_enabled"] = (SEMA_USE_ADS1115 != 0);
   doc["modbus_tcp_enabled"] = (SEMA_USE_MODBUS_TCP != 0);
+  doc["bacnet_enabled"] = (SEMA_USE_BACNET != 0);
   doc["esp_temp"] = temperatureRead() - 10.0f;  // corrección aproximada del sensor interno
   doc["restart_count"] = core_->restartCount();
   doc["reset_reason"] = esp_reset_reason();
@@ -2014,6 +2020,12 @@ void HttpServer::onConfigBuses() {
     next.modbusTcp.port = doc["modbus_tcp"]["port"] | 502;
     next.modbusTcp.unitId = doc["modbus_tcp"]["unit_id"] | 1;
   }
+  if (doc.containsKey("bacnet")) {
+    next.bacnet.enabled = doc["bacnet"]["enabled"] | false;
+    next.bacnet.deviceInstance = doc["bacnet"]["device_instance"] | 1000;
+    next.bacnet.networkNumber = doc["bacnet"]["network_number"] | 0;
+    next.bacnet.udpPort = doc["bacnet"]["udp_port"] | 47808;
+  }
   if (doc.containsKey("lora")) {
     next.lora.enabled = doc["lora"]["enabled"] | false;
     if (!pinsLocked) {
@@ -2238,6 +2250,9 @@ void HttpServer::onConfigPut() {
 #endif
 #if SEMA_USE_MODBUS_TCP
     core_->applyModbusTcp();
+#endif
+#if SEMA_USE_BACNET
+    core_->applyBacnet();
 #endif
 #if SEMA_USE_LORA
     core_->applyLora();
@@ -2975,6 +2990,22 @@ void HttpServer::onModbusTcp() {
   doc["unit_id"] = core_->config().get().modbusTcp.unitId;
   doc["holding_count"] = ModbusTcpManager::kHoldingCount;
   doc["coil_count"] = ModbusTcpManager::kCoilCount;
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+#endif
+
+#if SEMA_USE_BACNET
+void HttpServer::onBacnet() {
+  DynamicJsonDocument doc(512);
+  doc["ready"] = core_->bacnet().ready();
+  doc["enabled"] = core_->config().get().bacnet.enabled;
+  doc["device_instance"] = core_->config().get().bacnet.deviceInstance;
+  doc["network_number"] = core_->config().get().bacnet.networkNumber;
+  doc["udp_port"] = core_->config().get().bacnet.udpPort;
+  doc["analog_count"] = BacnetManager::kMaxAnalog;
+  doc["binary_count"] = BacnetManager::kMaxBinary;
   String out;
   serializeJson(doc, out);
   server_.send(200, "application/json", out);

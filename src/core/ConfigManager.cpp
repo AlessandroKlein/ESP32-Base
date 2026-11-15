@@ -276,6 +276,10 @@ bool ConfigManager::serialize(String& out) const {
   doc["modbus_tcp"]["enabled"] = config_.modbusTcp.enabled;
   doc["modbus_tcp"]["port"] = config_.modbusTcp.port;
   doc["modbus_tcp"]["unit_id"] = config_.modbusTcp.unitId;
+  doc["bacnet"]["enabled"] = config_.bacnet.enabled;
+  doc["bacnet"]["device_instance"] = config_.bacnet.deviceInstance;
+  doc["bacnet"]["network_number"] = config_.bacnet.networkNumber;
+  doc["bacnet"]["udp_port"] = config_.bacnet.udpPort;
   doc["lora"]["enabled"] = config_.lora.enabled;
   doc["lora"]["cs"] = config_.lora.csPin;
   doc["lora"]["rst"] = config_.lora.rstPin;
@@ -487,6 +491,10 @@ bool ConfigManager::parseInto(const String& in, Config& c) {
   c.modbusTcp.enabled = doc["modbus_tcp"]["enabled"] | false;
   c.modbusTcp.port = doc["modbus_tcp"]["port"] | 502;
   c.modbusTcp.unitId = doc["modbus_tcp"]["unit_id"] | 1;
+  c.bacnet.enabled = doc["bacnet"]["enabled"] | false;
+  c.bacnet.deviceInstance = doc["bacnet"]["device_instance"] | 1000;
+  c.bacnet.networkNumber = doc["bacnet"]["network_number"] | 0;
+  c.bacnet.udpPort = doc["bacnet"]["udp_port"] | 47808;
   c.lora.enabled = doc["lora"]["enabled"] | false;
   c.lora.csPin = doc["lora"]["cs"] | 10;
   c.lora.rstPin = doc["lora"]["rst"] | 32;

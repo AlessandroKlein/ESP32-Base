@@ -91,6 +91,9 @@
 #ifndef SEMA_USE_MODBUS_TCP
 #define SEMA_USE_MODBUS_TCP SEMA_OFF
 #endif
+#ifndef SEMA_USE_BACNET
+#define SEMA_USE_BACNET SEMA_OFF
+#endif
 
 // --- Transceiver RS485 ---
 #ifndef SEMA_MODBUS_ISOLATED

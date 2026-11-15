@@ -246,6 +246,16 @@ struct ModbusTcpConfig {
   uint8_t unitId = 1;   // Unit ID del servidor (Modbus TCP: casi siempre ignorado)
 };
 
+// BACnet/IP servidor (puente de protocolos, transporte-agnóstico). Expone un
+// objeto Device + Analog Inputs (magnitudes) + Binary Inputs (alarmas/estados).
+struct BacnetConfig {
+  bool enabled = false;
+  uint32_t deviceInstance = 1000;  // instancia BACnet del objeto Device (0..4194302)
+  uint16_t networkNumber = 0;      // red BACnet local (BACnet/IP red única = 0;
+                                   // solo importa con BBMD/routing, hoy informativo)
+  uint16_t udpPort = 47808;        // puerto UDP de escucha (0xBAC0 estándar)
+};
+
 // LoRa (SX1262, módulo Silicontra SX1262PATR8-GC).
 struct LoraConfig {
   bool enabled = false;
@@ -313,6 +323,7 @@ struct Config {
   ModbusConfig modbus;                     // RS485/Modbus (opcional)
   CanConfig can;                           // CAN/TWAI (opcional)
   ModbusTcpConfig modbusTcp;               // Modbus TCP servidor (opcional)
+  BacnetConfig bacnet;                     // BACnet/IP servidor (opcional)
   LoraConfig lora;                         // LoRa/SX1262 (opcional)
   ZigbeeConfig zigbee;                     // Zigbee/CC2652P2 (opcional)
   EthernetConfig ethernet;                 // Ethernet LAN8720A/W5500 (opcional)

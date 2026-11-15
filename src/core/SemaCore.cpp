@@ -152,6 +152,9 @@ void SemaCore::setup() {
 #if SEMA_USE_MODBUS_TCP
   modbusTcp_.apply(config_.get().modbusTcp);
 #endif
+#if SEMA_USE_BACNET
+  bacnet_.apply(config_.get().bacnet);
+#endif
 #if SEMA_USE_LORA
   lora_.apply(config_.get().lora);
 #endif
@@ -235,6 +238,36 @@ void SemaCore::setup() {
           modbusTcp_.setCoil(coilIdx++, gpio_.read(g.pin) != 0);
         }
       }
+    }
+#endif
+#if SEMA_USE_BACNET
+    // BACnet/IP: publica las mediciones activas como Analog Inputs (instancia
+    // N+1) y los GPIO de entrada como Binary Inputs. Igual mapping índice N que
+    // Modbus TCP, pero con unidades BACnet estándar y Object_Name = magnitud.
+    {
+      const auto& ms = sensors_.measurements();
+      const uint16_t ac = (ms.size() > BacnetManager::kMaxAnalog)
+                              ? BacnetManager::kMaxAnalog
+                              : static_cast<uint16_t>(ms.size());
+      bacnet_.setAnalogCount(ac);
+      for (uint16_t i = 0; i < ac; ++i) {
+        bacnet_.setAnalogInput(i, ms[i].measurement.c_str(), ms[i].value,
+                               BacnetManager::engineeringUnits(ms[i].unit.c_str(),
+                                                               ms[i].measurement.c_str()));
+      }
+      const auto& gpios = config_.get().gpio;
+      uint16_t binIdx = 0;
+      for (const GpioSpec& g : gpios) {
+        if (binIdx >= BacnetManager::kMaxBinary) {
+          break;
+        }
+        if (g.mode == "input" || g.mode == "input_pullup" || g.mode == "input_pulldown") {
+          char binName[16];
+          snprintf(binName, sizeof(binName), "GPIO%u", g.pin);
+          bacnet_.setBinaryInput(binIdx++, binName, gpio_.read(g.pin) != 0);
+        }
+      }
+      bacnet_.setBinaryCount(binIdx);
     }
 #endif
   });
@@ -407,6 +440,12 @@ void SemaCore::applyModbusTcp() {
 }
 #endif
 
+#if SEMA_USE_BACNET
+void SemaCore::applyBacnet() {
+  bacnet_.apply(config_.get().bacnet);
+}
+#endif
+
 #if SEMA_USE_LORA
 void SemaCore::applyLora() {
   lora_.apply(config_.get().lora);
@@ -447,6 +486,9 @@ void SemaCore::loop() {
 #endif
 #if SEMA_USE_MODBUS_TCP
   modbusTcp_.loop();
+#endif
+#if SEMA_USE_BACNET
+  bacnet_.loop();
 #endif
   // Retención por tiempo: poda el histórico periódicamente (cada hora).
   {
