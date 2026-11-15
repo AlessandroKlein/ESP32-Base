@@ -2237,9 +2237,11 @@ void HttpServer::onNetwork() {
   doc["connected"] = core_->wifi().connected();
   doc["ip"] = core_->wifi().localIP();
   doc["rssi"] = core_->wifi().rssi();
+#if SEMA_USE_ETHERNET
   doc["ethernet"]["enabled"] = core_->ethernet().enabled();
   doc["ethernet"]["connected"] = core_->ethernet().connected();
   doc["ethernet"]["ip"] = core_->ethernet().localIP();
+#endif
   String out;
   serializeJson(doc, out);
   server_.send(200, "application/json", out);

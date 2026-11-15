@@ -17,9 +17,14 @@ void PowerManager::sleep(uint64_t seconds) {
 }
 
 void PowerManager::enableRainWakeup(uint8_t pin) {
-  // Wake por GPIO (D-0022): pluviómetro de cangilones. Requiere pin RTC-capable
-  // (p. ej. GPIO4/5/…); nivel HIGH en el pulso.
+  // Wake por GPIO (D-0022): pluviómetro de cangilones. Nivel HIGH en el pulso.
+#if SOC_PM_SUPPORT_EXT0_WAKEUP
+  // ESP32/S2/S3: wakeup EXT0 de un único pin RTC.
   esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(pin), 1);
+#else
+  // C2/C3/C6/H2/C5/C61/P4 (sin EXT0): wakeup GPIO por máscara de 1 bit.
+  esp_deep_sleep_enable_gpio_wakeup(1ULL << pin, ESP_GPIO_WAKEUP_GPIO_HIGH);
+#endif
 }
 
 uint32_t PowerManager::wakeReason() const {
