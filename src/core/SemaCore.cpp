@@ -116,9 +116,18 @@ void SemaCore::setup() {
 #if SEMA_USE_SHIFT
   shift_.apply(config_.get().shiftRegisters);
 #endif
+#if SEMA_USE_MCP23S17
+  mcp23s17_.apply(config_.get().mcp23s17);
+#endif
+#if SEMA_USE_PCA9685
+  pca9685_.apply(config_.get().pca9685);
+#endif
+#if SEMA_USE_PCF8574
+  pcf8574_.apply(config_.get().pcf8574);
+#endif
 
-  // Bus SPI compartido (W5500 + LoRa): inicializar una única vez.
-#if SEMA_USE_LORA || SEMA_USE_ETHERNET
+  // Bus SPI compartido (W5500 + LoRa + MCP23S17): inicializar una única vez.
+#if SEMA_USE_LORA || SEMA_USE_ETHERNET || SEMA_USE_MCP23S17
   SPI.begin(SEMA_SPI_SCK, SEMA_SPI_MISO, SEMA_SPI_MOSI);
 #endif
 
@@ -299,6 +308,24 @@ void SemaCore::applyShift() {
   shift_.apply(config_.get().shiftRegisters);
 #endif
 }
+
+#if SEMA_USE_MCP23S17
+void SemaCore::applyMcp23s17() {
+  mcp23s17_.apply(config_.get().mcp23s17);
+}
+#endif
+
+#if SEMA_USE_PCA9685
+void SemaCore::applyPca9685() {
+  pca9685_.apply(config_.get().pca9685);
+}
+#endif
+
+#if SEMA_USE_PCF8574
+void SemaCore::applyPcf8574() {
+  pcf8574_.apply(config_.get().pcf8574);
+}
+#endif
 
 #if SEMA_USE_MODBUS
 void SemaCore::applyModbus() {

@@ -121,6 +121,18 @@ void HttpServer::begin(SemaCore& core) {
   server_.on("/api/v1/gpio", HTTP_POST, [this]() { onGpioWrite(); });
   server_.on("/api/v1/shift", HTTP_GET, [this]() { onShift(); });
   server_.on("/api/v1/shift", HTTP_POST, [this]() { onShiftWrite(); });
+#if SEMA_USE_MCP23S17
+  server_.on("/api/v1/mcp23s17", HTTP_GET, [this]() { onMcp23s17(); });
+  server_.on("/api/v1/mcp23s17", HTTP_POST, [this]() { onMcp23s17Write(); });
+#endif
+#if SEMA_USE_PCA9685
+  server_.on("/api/v1/pca9685", HTTP_GET, [this]() { onPca9685(); });
+  server_.on("/api/v1/pca9685", HTTP_POST, [this]() { onPca9685Write(); });
+#endif
+#if SEMA_USE_PCF8574
+  server_.on("/api/v1/pcf8574", HTTP_GET, [this]() { onPcf8574(); });
+  server_.on("/api/v1/pcf8574", HTTP_POST, [this]() { onPcf8574Write(); });
+#endif
 #if SEMA_USE_MODBUS
   server_.on("/api/v1/modbus", HTTP_GET, [this]() { onModbus(); });
 #endif
@@ -1072,10 +1084,13 @@ void HttpServer::onSensorsPage() {
 const TYPES=__SENSOR_CATALOG__;
 let cfg={};
 let shiftEnabled=false;
+let mcpEnabled=false;
+let pcaEnabled=false;
+let pcfEnabled=false;
 let reservedPins=new Set();
 let pinsLocked=false;
 let pinsFromFile=false;
-async function load(){try{const r=await(await fetch('/api/v1/config')).json();cfg=r;try{const y=await(await fetch('/api/v1/system')).json();shiftEnabled=!!y.shift_enabled;reservedPins=new Set(y.reserved_pins||[]);pinsFromFile=!!y.pins_from_file;pinsLocked=pinsFromFile||!y.ap_mode}catch(e){}render();loadPins(r);renderIo()}catch(e){document.getElementById('sensorList').innerHTML='<p class="muted">Error al cargar</p>'}}
+async function load(){try{const r=await(await fetch('/api/v1/config')).json();cfg=r;try{const y=await(await fetch('/api/v1/system')).json();shiftEnabled=!!y.shift_enabled;mcpEnabled=!!y.mcp23s17_enabled;pcaEnabled=!!y.pca9685_enabled;pcfEnabled=!!y.pcf8574_enabled;reservedPins=new Set(y.reserved_pins||[]);pinsFromFile=!!y.pins_from_file;pinsLocked=pinsFromFile||!y.ap_mode}catch(e){}render();loadPins(r);renderIo()}catch(e){document.getElementById('sensorList').innerHTML='<p class="muted">Error al cargar</p>'}}
 function usedPins(){
   const s=new Set();
   // Solo pines "únicos" (punto a punto): PIN analógico/pulsos y RX/TX de UART.
@@ -1277,6 +1292,7 @@ function renderIo(){
   const mPins=cfg.mcp23s17_pins||[];
   const used=usedPins();
   let h='';
+  if(mcpEnabled){
   // MCP23S17 (expansor GPIO SPI)
   h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">MCP23S17 — expansor GPIO SPI (16 pines) <span class="q" title="Expansor GPIO por SPI de 16 pines (2 puertos A/B). Tensión 1.8-5.5V (lógica del bus 3.3V del ESP32).">?</span></div>';
   h+='<div class="catalog">';
@@ -1288,6 +1304,7 @@ function renderIo(){
   for(let i=0;i<8;i++){ h+=sel('mp'+(i+8), mPins[i+8]!==undefined?mPins[i+8]:0, 'B'+i); }
   h+='</span></div>';
   h+='</div>';
+  }
   // Expansores SPI (UART/I²C): MAX14830 / SC18IS602B. Solo configuran CS.
   h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">Expansores SPI (UART / I²C) <span class="q" title="MAX14830 = 4 puertos UART por SPI; SC18IS602B = bus I²C por SPI. Solo se configura el chip-select (CS).">?</span></div>';
   h+='<div class="catalog" id="spxList">';
@@ -1310,10 +1327,35 @@ function renderIo(){
     h+='</div>';
     h+='<button class="sec" onclick="addSh()">➕ Añadir registro</button>';
   }
+  if(pcaEnabled){
+    h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">PCA9685 — expansor PWM I²C (16 canales) <span class="q" title="16 canales PWM para válvulas/dimmers/servos. Duty de 12 bits (0-4095).">?</span></div>';
+    h+='<div class="catalog">';
+    const pcaAddr=cfg.pca9685_addr||0, pcaFreq=cfg.pca9685_freq||50, pcaCh=cfg.pca9685_channels||[];
+    h+='<div class="cat-item"><span>Dirección I²C</span>'+hexSel('pcaAddr',pcaAddr,0x40,16)+'<span class="muted">Frecuencia (Hz)</span><input id="pcaFreq" value="'+pcaFreq+'" style="width:56px"></div>';
+    h+='<div class="cat-item"><span>Canales 0-7 (duty 0-4095)</span><span class="muted">';
+    for(let i=0;i<8;i++){ h+='<label style="font-size:.62rem;margin-right:.2rem">'+i+'<input id="pc'+i+'" value="'+(pcaCh[i]||0)+'" style="width:48px"></label>'; }
+    h+='</span></div>';
+    h+='<div class="cat-item"><span>Canales 8-15</span><span class="muted">';
+    for(let i=0;i<8;i++){ h+='<label style="font-size:.62rem;margin-right:.2rem">'+(i+8)+'<input id="pc'+(i+8)+'" value="'+(pcaCh[i+8]||0)+'" style="width:48px"></label>'; }
+    h+='</span></div>';
+    h+='</div>';
+  }
+  if(pcfEnabled){
+    h+='<div class="muted" style="margin:.5rem 0 .2rem;font-weight:600">PCF8574/8575 — expansor GPIO I²C <span class="q" title="PCF8574 = 8 pines; PCF8575 = 16 pines. Cuasi-bidireccional: para leer un pin debe quedar en alto.">?</span></div>';
+    h+='<div class="catalog">';
+    const pcfAddr=cfg.pcf8574_addr||0, pcfType=cfg.pcf8574_type||'PCF8574', pcfPins=cfg.pcf8574_pins||[];
+    const pcfN=(pcfType==='PCF8575')?16:8;
+    h+='<div class="cat-item"><span>Dirección I²C</span>'+hexSel('pcfAddr',pcfAddr,0x20,8)+'<span class="muted">Tipo</span><select id="pcfType" onchange="renderIo()"><option value="PCF8574"'+(pcfType==='PCF8574'?' selected':'')+'>PCF8574 (8)</option><option value="PCF8575"'+(pcfType==='PCF8575'?' selected':'')+'>PCF8575 (16)</option></select></div>';
+    h+='<div class="cat-item"><span>Pines P0-P'+(pcfN-1)+'</span><span class="muted">';
+    for(let i=0;i<pcfN;i++){ h+=sel('pf'+i, pcfPins[i]!==undefined?pcfPins[i]:0, 'P'+i); }
+    h+='</span></div>';
+    h+='</div>';
+  }
   list.innerHTML=h;
   applyPinLock();
 }
 function sel(id,val,label){return '<span style="margin-right:.3rem">'+label+'<select id="'+id+'" style="width:80px"><option value="0"'+(val==0?' selected':'')+'>—</option><option value="1"'+(val==1?' selected':'')+'>out</option><option value="2"'+(val==2?' selected':'')+'>in</option></select></span>';}
+function hexSel(id,cur,base,count){let h='<select id="'+id+'"><option value="0"'+(cur==0?' selected':'')+'>— deshabilitado —</option>';for(let i=0;i<count;i++){const a=base+i;h+='<option value="'+a+'"'+(cur==a?' selected':'')+'>0x'+a.toString(16).toUpperCase().padStart(2,'0')+'</option>';}h+='</select>';return h;}
 function addSh(){
   uiModal('¿Qué chip agregar?','',[
     {t:'74HC595 (8 salidas)',ok:()=>{cfg.shift_registers=cfg.shift_registers||[];cfg.shift_registers.push({type:'74HC595',latch_pin:0,pins:[0,0,0,0,0,0,0,0]});renderIo()}},
@@ -1329,8 +1371,13 @@ function addSpx(){
 }
 function delSpx(i){cfg.spi_expanders.splice(i,1);renderIo();}
 function saveIo(){
-  const pins=[];
-  for(let i=0;i<16;i++){ pins.push(parseInt(document.getElementById('mp'+i).value)||0); }
+  const body={gpio:[]};
+  if(mcpEnabled){
+    const pins=[];
+    for(let i=0;i<16;i++){ pins.push(parseInt(document.getElementById('mp'+i).value)||0); }
+    body.mcp23s17_cs=parseInt(document.getElementById('mcpCs').value)||0;
+    body.mcp23s17_pins=pins;
+  }
   const shift=[];
   if(shiftEnabled){
     document.querySelectorAll('#shList .cat-item').forEach((row,i)=>{
@@ -1339,13 +1386,30 @@ function saveIo(){
       row.querySelectorAll('input.shp').forEach(cb=>sp.push(cb.checked?1:0));
       shift.push({type:t.value,latch:parseInt(l.value)||0,pins:sp});
     });
+    body.shift_registers=shift;
   }
   const spx=[];
   document.querySelectorAll('#spxList select.spxcs').forEach((sel,i)=>{
     const t=(cfg.spi_expanders&&cfg.spi_expanders[i])?cfg.spi_expanders[i].type:'MAX14830';
     spx.push({type:t,cs:parseInt(sel.value)||0});
   });
-  const body={mcp23s17_cs:parseInt(document.getElementById('mcpCs').value)||0,mcp23s17_pins:pins,shift_registers:shift,spi_expanders:spx,gpio:[]};
+  body.spi_expanders=spx;
+  if(pcaEnabled){
+    const ch=[];
+    for(let i=0;i<16;i++){ ch.push(parseInt(document.getElementById('pc'+i).value)||0); }
+    body.pca9685_addr=parseInt(document.getElementById('pcaAddr').value)||0;
+    body.pca9685_freq=parseInt(document.getElementById('pcaFreq').value)||50;
+    body.pca9685_channels=ch;
+  }
+  if(pcfEnabled){
+    const n=(document.getElementById('pcfType').value==='PCF8575')?16:8;
+    const pins=[];
+    for(let i=0;i<n;i++){ pins.push(parseInt(document.getElementById('pf'+i).value)||0); }
+    while(pins.length<16){ pins.push(0); }
+    body.pcf8574_addr=parseInt(document.getElementById('pcfAddr').value)||0;
+    body.pcf8574_type=document.getElementById('pcfType').value;
+    body.pcf8574_pins=pins;
+  }
   fetch('/api/v1/config/io',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>uiAlert(r.ok?'Guardado':'Error')).catch(()=>uiAlert('Error de red'));
 }
 function applyPinLock(){
@@ -1515,6 +1579,9 @@ void HttpServer::onSystem() {
   doc["sd_enabled"] = core_->config().get().storage.sdEnabled;
   doc["history_available"] = core_->history().sdEnabled();
   doc["shift_enabled"] = (SEMA_USE_SHIFT != 0);
+  doc["mcp23s17_enabled"] = (SEMA_USE_MCP23S17 != 0);
+  doc["pca9685_enabled"] = (SEMA_USE_PCA9685 != 0);
+  doc["pcf8574_enabled"] = (SEMA_USE_PCF8574 != 0);
   doc["esp_temp"] = temperatureRead() - 10.0f;  // corrección aproximada del sensor interno
   doc["restart_count"] = core_->restartCount();
   doc["reset_reason"] = esp_reset_reason();
@@ -1711,6 +1778,23 @@ void HttpServer::onConfigIo() {
       next.mcp23s17.pinModes[i] = mp[i] | 0;
     }
   }
+  // I²C (dirección) y modos de canal no son pines GPIO: se aplican siempre.
+  if (doc.containsKey("pca9685_addr")) {
+    next.pca9685.address = doc["pca9685_addr"] | 0;
+    next.pca9685.frequency = doc["pca9685_freq"] | 50;
+    JsonArray pc = doc["pca9685_channels"].as<JsonArray>();
+    for (int i = 0; i < 16 && i < static_cast<int>(pc.size()); ++i) {
+      next.pca9685.channels[i] = pc[i] | 0;
+    }
+  }
+  if (doc.containsKey("pcf8574_addr")) {
+    next.pcf8574.address = doc["pcf8574_addr"] | 0;
+    next.pcf8574.type = doc["pcf8574_type"] | "PCF8574";
+    JsonArray pf = doc["pcf8574_pins"].as<JsonArray>();
+    for (int i = 0; i < 16 && i < static_cast<int>(pf.size()); ++i) {
+      next.pcf8574.pinModes[i] = pf[i] | 0;
+    }
+  }
 #if SEMA_USE_SHIFT
   if (!pinsLocked && doc.containsKey("shift_registers")) {
     next.shiftRegisters.clear();
@@ -1756,6 +1840,15 @@ void HttpServer::onConfigIo() {
   }
   core_->applyGpio();
   core_->applyShift();
+#if SEMA_USE_MCP23S17
+  core_->applyMcp23s17();
+#endif
+#if SEMA_USE_PCA9685
+  core_->applyPca9685();
+#endif
+#if SEMA_USE_PCF8574
+  core_->applyPcf8574();
+#endif
   server_.send(200, "application/json", "{\"ok\":true}");
 }
 
@@ -2469,6 +2562,117 @@ void HttpServer::onShiftWrite() {
   core_->shift().writeByte(value);
   server_.send(200, "application/json", "{\"ok\":true}");
 }
+
+#if SEMA_USE_MCP23S17
+void HttpServer::onMcp23s17() {
+  DynamicJsonDocument doc(1024);
+  JsonArray arr = doc.createNestedArray("pins");
+  for (uint8_t i = 0; i < 16; ++i) {
+    JsonObject o = arr.createNestedObject();
+    o["pin"] = i;
+    o["mode"] = core_->mcp23s17().config().pinModes[i];
+    o["value"] = core_->mcp23s17().digitalRead(i);
+  }
+  doc["ready"] = core_->mcp23s17().ready();
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void HttpServer::onMcp23s17Write() {
+  if (!webAuthed()) {
+    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  if (!server_.hasArg("plain")) {
+    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
+    return;
+  }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  const uint8_t pin = doc["pin"] | 0;
+  const int value = doc["value"] | 0;
+  core_->mcp23s17().digitalWrite(pin, value);
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+#endif
+
+#if SEMA_USE_PCA9685
+void HttpServer::onPca9685() {
+  DynamicJsonDocument doc(1024);
+  JsonArray arr = doc.createNestedArray("channels");
+  for (uint8_t i = 0; i < 16; ++i) {
+    arr.add(core_->pca9685().config().channels[i]);
+  }
+  doc["ready"] = core_->pca9685().ready();
+  doc["frequency"] = core_->pca9685().config().frequency;
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void HttpServer::onPca9685Write() {
+  if (!webAuthed()) {
+    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  if (!server_.hasArg("plain")) {
+    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
+    return;
+  }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  const uint8_t channel = doc["channel"] | 0;
+  const uint16_t value = doc["value"] | 0;
+  core_->pca9685().setChannel(channel, value);
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+#endif
+
+#if SEMA_USE_PCF8574
+void HttpServer::onPcf8574() {
+  DynamicJsonDocument doc(1024);
+  JsonArray arr = doc.createNestedArray("pins");
+  const uint8_t n = core_->pcf8574().pinCount();
+  for (uint8_t i = 0; i < n; ++i) {
+    JsonObject o = arr.createNestedObject();
+    o["pin"] = i;
+    o["mode"] = core_->pcf8574().config().pinModes[i];
+    o["value"] = core_->pcf8574().digitalRead(i);
+  }
+  doc["ready"] = core_->pcf8574().ready();
+  doc["type"] = core_->pcf8574().config().type;
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void HttpServer::onPcf8574Write() {
+  if (!webAuthed()) {
+    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+    return;
+  }
+  if (!server_.hasArg("plain")) {
+    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
+    return;
+  }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  const uint8_t pin = doc["pin"] | 0;
+  const int value = doc["value"] | 0;
+  core_->pcf8574().digitalWrite(pin, value);
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+#endif
 
 #if SEMA_USE_MODBUS
 void HttpServer::onModbus() {

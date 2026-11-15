@@ -216,6 +216,18 @@ bool ConfigManager::serialize(String& out) const {
   for (int i = 0; i < 16; ++i) {
     mp.add(config_.mcp23s17.pinModes[i]);
   }
+  doc["pca9685_addr"] = config_.pca9685.address;
+  doc["pca9685_freq"] = config_.pca9685.frequency;
+  JsonArray pc = doc.createNestedArray("pca9685_channels");
+  for (int i = 0; i < 16; ++i) {
+    pc.add(config_.pca9685.channels[i]);
+  }
+  doc["pcf8574_addr"] = config_.pcf8574.address;
+  doc["pcf8574_type"] = config_.pcf8574.type;
+  JsonArray pf = doc.createNestedArray("pcf8574_pins");
+  for (int i = 0; i < 16; ++i) {
+    pf.add(config_.pcf8574.pinModes[i]);
+  }
   JsonArray sr = doc.createNestedArray("shift_registers");
   for (const ShiftRegisterConfig& s : config_.shiftRegisters) {
     JsonObject o = sr.createNestedObject();
@@ -392,6 +404,18 @@ bool ConfigManager::parseInto(const String& in, Config& c) {
   JsonArray mp = doc["mcp23s17_pins"].as<JsonArray>();
   for (int i = 0; i < 16 && i < static_cast<int>(mp.size()); ++i) {
     c.mcp23s17.pinModes[i] = mp[i] | 0;
+  }
+  c.pca9685.address = doc["pca9685_addr"] | 0;
+  c.pca9685.frequency = doc["pca9685_freq"] | 50;
+  JsonArray pc = doc["pca9685_channels"].as<JsonArray>();
+  for (int i = 0; i < 16 && i < static_cast<int>(pc.size()); ++i) {
+    c.pca9685.channels[i] = pc[i] | 0;
+  }
+  c.pcf8574.address = doc["pcf8574_addr"] | 0;
+  c.pcf8574.type = doc["pcf8574_type"] | "PCF8574";
+  JsonArray pf = doc["pcf8574_pins"].as<JsonArray>();
+  for (int i = 0; i < 16 && i < static_cast<int>(pf.size()); ++i) {
+    c.pcf8574.pinModes[i] = pf[i] | 0;
   }
   c.shiftRegisters.clear();
   JsonArray sr = doc["shift_registers"].as<JsonArray>();

@@ -18,6 +18,9 @@
 #  if __has_include("core/Version.hpp")
 #    include "core/Version.hpp"
 #  endif
+#  if __has_include("sdkconfig.h")
+#    include "sdkconfig.h"  // CONFIG_IDF_TARGET_ESP32* (detección de chip)
+#  endif
 #endif
 
 // --- Identidad de la board ---
@@ -28,7 +31,14 @@
 #define SEMA_FLASH_MB 4
 #endif
 #ifndef SEMA_NATIVE_ETH
+// Fallback sin perfil de proyecto: detectar el chip. CONFIG_IDF_TARGET_ESP32* lo
+// define sdkconfig.h (incluido arriba vía __has_include). El ESP32 clásico es el
+// único con EMAC nativa; S2/S3/C3/C6/H2/P4 usan W5500 por SPI.
+#if defined(CONFIG_IDF_TARGET_ESP32)
+#define SEMA_NATIVE_ETH 1
+#else
 #define SEMA_NATIVE_ETH 0
+#endif
 #endif
 
 #ifndef SEMA_ON
@@ -56,6 +66,15 @@
 #endif
 #ifndef SEMA_USE_SHIFT
 #define SEMA_USE_SHIFT SEMA_OFF
+#endif
+#ifndef SEMA_USE_MCP23S17
+#define SEMA_USE_MCP23S17 SEMA_OFF
+#endif
+#ifndef SEMA_USE_PCA9685
+#define SEMA_USE_PCA9685 SEMA_OFF
+#endif
+#ifndef SEMA_USE_PCF8574
+#define SEMA_USE_PCF8574 SEMA_OFF
 #endif
 
 // --- Transceiver RS485 ---

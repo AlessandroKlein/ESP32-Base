@@ -10,6 +10,15 @@
 #include "core/EventBus.hpp"
 #include "core/GpioManager.hpp"
 #include "core/ShiftRegisterManager.hpp"
+#if SEMA_USE_MCP23S17
+#include "core/Mcp23s17Manager.hpp"
+#endif
+#if SEMA_USE_PCA9685
+#include "core/Pca9685Manager.hpp"
+#endif
+#if SEMA_USE_PCF8574
+#include "core/Pcf8574Manager.hpp"
+#endif
 #if SEMA_USE_MODBUS
 #include "core/ModbusManager.hpp"
 #endif
@@ -66,6 +75,15 @@ public:
   void applyPublishers();
   void applySensors();
   void applyShift();
+#if SEMA_USE_MCP23S17
+  void applyMcp23s17();
+#endif
+#if SEMA_USE_PCA9685
+  void applyPca9685();
+#endif
+#if SEMA_USE_PCF8574
+  void applyPcf8574();
+#endif
 #if SEMA_USE_MODBUS
   void applyModbus();
 #endif
@@ -100,6 +118,15 @@ public:
   EventLog& eventLog() { return eventLog_; }
   GpioManager& gpio() { return gpio_; }
   ShiftRegisterManager& shift() { return shift_; }
+#if SEMA_USE_MCP23S17
+  Mcp23s17Manager& mcp23s17() { return mcp23s17_; }
+#endif
+#if SEMA_USE_PCA9685
+  Pca9685Manager& pca9685() { return pca9685_; }
+#endif
+#if SEMA_USE_PCF8574
+  Pcf8574Manager& pcf8574() { return pcf8574_; }
+#endif
   uint32_t restartCount() const { return restartCount_; }
 #if SEMA_USE_MODBUS
   ModbusManager& modbus() { return modbus_; }
@@ -133,6 +160,15 @@ private:
   EventLog eventLog_;
   GpioManager gpio_;
   ShiftRegisterManager shift_;
+#if SEMA_USE_MCP23S17
+  Mcp23s17Manager mcp23s17_;
+#endif
+#if SEMA_USE_PCA9685
+  Pca9685Manager pca9685_;
+#endif
+#if SEMA_USE_PCF8574
+  Pcf8574Manager pcf8574_;
+#endif
 #if SEMA_USE_MODBUS
   ModbusManager modbus_;
 #endif

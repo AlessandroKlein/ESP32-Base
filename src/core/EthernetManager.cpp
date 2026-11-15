@@ -36,50 +36,35 @@ void EthernetManager::apply(const EthernetConfig& cfg) {
 
 #if SEMA_NATIVE_ETH
   // LAN8720A por RMII: reloj de 50 MHz entrando por GPIO0.
-  ETH.begin(cfg_.phyAddr, cfg_.powerPin, cfg_.mdcPin, cfg_.mdioPin,
-            ETH_PHY_LAN8720, ETH_CLOCK_GPIO0_IN);
+  // core 3.x: ETH.begin(type, phy_addr, mdc, mdio, power, clk_mode).
+  ETH.begin(ETH_PHY_LAN8720, cfg_.phyAddr, cfg_.mdcPin, cfg_.mdioPin,
+            cfg_.powerPin, ETH_CLOCK_GPIO0_IN);
   ready_ = true;
 
 #else
-  // --- 1. Bus SPI ---
-  spi_bus_config_t buscfg = {};
-  buscfg.miso_io_num = cfg_.misoPin;
-  buscfg.mosi_io_num = cfg_.mosiPin;
-  buscfg.sclk_io_num = cfg_.sckPin;
-  buscfg.quadwp_io_num = -1;
-  buscfg.quadhd_io_num = -1;
-  buscfg.max_transfer_sz = 4000;
-  if (spi_bus_initialize(static_cast<spi_host_device_t>(SEMA_ETH_SPI_HOST),
-                         &buscfg, SPI_DMA_CH_AUTO) != ESP_OK) {
-    return;
-  }
-
-  // --- 2. Dispositivo SPI (W5500: address 16 bits + control 8 bits) ---
-  spi_device_interface_config_t devcfg = {};
+  // --- Dispositivo SPI (W5500: address 16 bits + control 8 bits) ---
+  // core 3.x (IDF 5.x): ETH_W5500_DEFAULT_CONFIG(spi_host, &spi_devcfg) delega el
+  // bus SPI al driver interno (spi_bus_initialize + spi_bus_add_device con los pines
+  // por defecto del host). `static` para que &devcfg siga válido tras apply().
+  static spi_device_interface_config_t devcfg = {};
   devcfg.command_bits = 16;
   devcfg.address_bits = 8;
   devcfg.mode = 0;
   devcfg.clock_speed_hz = 20 * 1000 * 1000;  // 20 MHz
   devcfg.spics_io_num = cfg_.csPin;
   devcfg.queue_size = 20;
-  spi_device_handle_t spi_hdl = nullptr;
-  if (spi_bus_add_device(static_cast<spi_host_device_t>(SEMA_ETH_SPI_HOST),
-                         &devcfg, &spi_hdl) != ESP_OK) {
-    return;
-  }
 
-  // --- 3. MAC W5500 ---
-  eth_w5500_config_t w5500 = ETH_W5500_DEFAULT_CONFIG(spi_hdl);
+  // --- MAC W5500 ---
+  eth_w5500_config_t w5500 = ETH_W5500_DEFAULT_CONFIG(
+      static_cast<spi_host_device_t>(SEMA_ETH_SPI_HOST), &devcfg);
   w5500.int_gpio_num = cfg_.irqPin;
   eth_mac_config_t mac_cfg = ETH_MAC_DEFAULT_CONFIG();
-  mac_cfg.smi_mdc_gpio_num = -1;
-  mac_cfg.smi_mdio_gpio_num = -1;
   esp_eth_mac_t* mac = esp_eth_mac_new_w5500(&w5500, &mac_cfg);
   if (mac == nullptr) {
     return;
   }
 
-  // --- 4. PHY W5500 ---
+  // --- PHY W5500 ---
   eth_phy_config_t phy_cfg = ETH_PHY_DEFAULT_CONFIG();
   phy_cfg.phy_addr = cfg_.phyAddr;
   phy_cfg.reset_gpio_num = cfg_.rstPin;
@@ -88,20 +73,19 @@ void EthernetManager::apply(const EthernetConfig& cfg) {
     return;
   }
 
-  // --- 5. Driver Ethernet ---
+  // --- Driver Ethernet ---
   esp_eth_config_t eth_cfg = ETH_DEFAULT_CONFIG(mac, phy);
   esp_eth_handle_t eth_handle = nullptr;
   if (esp_eth_driver_install(&eth_cfg, &eth_handle) != ESP_OK) {
     return;
   }
 
-  // --- 6. Interfaz de red lwIP ---
+  // --- Interfaz de red lwIP ---
   esp_netif_config_t netif_cfg = ESP_NETIF_DEFAULT_ETH();
   g_eth_netif = esp_netif_new(&netif_cfg);
-  esp_eth_set_default_handlers(g_eth_netif);
   esp_netif_attach(g_eth_netif, esp_eth_new_netif_glue(eth_handle));
 
-  // --- 7. Arranque (DHCP) ---
+  // --- Arranque (DHCP) ---
   esp_eth_start(eth_handle);
   ready_ = true;
 #endif

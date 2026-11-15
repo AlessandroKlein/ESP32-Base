@@ -70,6 +70,18 @@ private:
   void onGpioWrite();
   void onShift();
   void onShiftWrite();
+#if SEMA_USE_MCP23S17
+  void onMcp23s17();
+  void onMcp23s17Write();
+#endif
+#if SEMA_USE_PCA9685
+  void onPca9685();
+  void onPca9685Write();
+#endif
+#if SEMA_USE_PCF8574
+  void onPcf8574();
+  void onPcf8574Write();
+#endif
 #if SEMA_USE_MODBUS
   void onModbus();
 #endif

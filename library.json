@@ -1,6 +1,6 @@
 {
   "name": "ESP32-Base",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Librería base reutilizable para firmware ESP32 (PlatformIO + Arduino): runtime modular, gestión de configuración, red (WiFi/Ethernet), web local, almacenamiento NVS/histórico, alarmas, publicadores HTTP/MQTT e infraestructura de dominio.",
   "keywords": ["esp32", "base", "framework", "iot", "runtime", "scheduler", "config", "wifi", "ethernet", "web", "nvs", "alarms", "publishers", "mqtt"],
   "license": "MIT",
@@ -12,6 +12,8 @@
     "knolleary/PubSubClient": "^2.8",
     "4-20ma/ModbusMaster": "^2.0.1",
     "jgromes/RadioLib": "^6.0.0",
-    "adafruit/Adafruit MCP23017 Arduino Library": "^2.3.0"
+    "adafruit/Adafruit MCP23017 Arduino Library": "^2.3.0",
+    "adafruit/Adafruit PWM Servo Driver Library": "^3.0.0",
+    "adafruit/Adafruit PCF8574": "^1.0.0"
   }
 }

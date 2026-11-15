@@ -151,6 +151,20 @@ struct SpiExpanderConfig {
   uint8_t csPin = 0;         // chip select SPI (0 = no usar)
 };
 
+// PCA9685 — expansor PWM por I²C (16 canales) para válvulas/dimmers/servos.
+struct Pca9685Config {
+  uint8_t address = 0;           // dirección I²C (0 = no usar; típico 0x40)
+  uint16_t frequency = 50;       // frecuencia PWM compartida (Hz)
+  uint16_t channels[16] = {0};   // duty por canal (0..4095; 0 = apagado)
+};
+
+// PCF8574/PCF8575 — expansor GPIO por I²C (8/16 pines).
+struct Pcf8574Config {
+  uint8_t address = 0;           // dirección I²C (0 = no usar; típico 0x20)
+  String type = "PCF8574";       // "PCF8574" (8 pines) | "PCF8575" (16 pines)
+  uint8_t pinModes[16] = {0};    // 0=no usado, 1=salida, 2=entrada
+};
+
 // RS485 / Modbus RTU (maestro de un esclavo).
 struct ModbusConfig {
   bool enabled = false;
@@ -231,6 +245,8 @@ struct Config {
   Mcp23s17Config mcp23s17;                 // expansor GPIO SPI MCP23S17 (opcional)
   std::vector<ShiftRegisterConfig> shiftRegisters;  // shift registers (encadenables)
   std::vector<SpiExpanderConfig> spiExpanders;       // expansores SPI (MAX14830/SC18IS602B)
+  Pca9685Config pca9685;                   // expansor PWM PCA9685 (opcional)
+  Pcf8574Config pcf8574;                   // expansor GPIO PCF8574/8575 (opcional)
   ModbusConfig modbus;                     // RS485/Modbus (opcional)
   CanConfig can;                           // CAN/TWAI (opcional)
   LoraConfig lora;                         // LoRa/SX1262 (opcional)
