@@ -45,9 +45,9 @@ struct CoreHooks {
   String (*measurementLabelsJson)() = nullptr;  // objeto JS MEAS{} (dashboard)
   String (*sensorsJson)(const SemaCore& core, bool imperial) = nullptr;  // /api/v1/sensors
   String (*forecastJson)() = nullptr;  // /api/v1/forecast
-  String (*windNorthJson)(const SemaCore& core,
+  String (*windNorthJson)(SemaCore& core,
                           int& status) = nullptr;  // /api/v1/wind/north
-  String (*windResistorsJson)(const SemaCore& core, const String& body,
+  String (*windResistorsJson)(SemaCore& core, const String& body,
                               int& status) = nullptr;  // /api/v1/wind/resistors
 };
 

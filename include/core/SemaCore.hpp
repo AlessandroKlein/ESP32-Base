@@ -85,6 +85,7 @@ public:
   ModuleRegistry& modules() { return modules_; }
   EventBus& events() { return events_; }
   ConfigManager& config() { return config_; }
+  const ConfigManager& config() const { return config_; }
   CapabilityManager& capabilities() { return CapabilityManager::instance(); }
   Scheduler& scheduler() { return scheduler_; }
   WiFiManager& wifi() { return wifi_; }
@@ -92,6 +93,7 @@ public:
   Watchdog& watchdog() { return watchdog_; }
   HealthMonitor& health() { return health_; }
   SensorManager& sensors() { return sensors_; }
+  const SensorManager& sensors() const { return sensors_; }
   HistoryStore& history() { return history_; }
   PublisherManager& publishers() { return publishers_; }
   RuleEngine& rules() { return rules_; }
