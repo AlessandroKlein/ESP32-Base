@@ -1,6 +1,6 @@
 {
   "name": "ESP32-Base",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Librería base reutilizable para firmware ESP32 (PlatformIO + Arduino): runtime modular, gestión de configuración, red (WiFi/Ethernet), web local, almacenamiento NVS/histórico, alarmas, publicadores HTTP/MQTT e infraestructura de dominio.",
   "keywords": [
     "esp32",
