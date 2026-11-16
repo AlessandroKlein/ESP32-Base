@@ -14,7 +14,6 @@
 
 #include "core/SemaCore.hpp"
 #include "core/Time.hpp"
-#include "core/web/GridstackAssets.h"
 #include "base/core_hooks.h"
 
 namespace base {
@@ -104,18 +103,6 @@ void HttpServer::begin(SemaCore& core) {
   server_.on("/api/v1/forecast", HTTP_GET, [this]() { onForecast(); });
   server_.on("/api/v1/wind/north", HTTP_POST, [this]() { onWindNorth(); });
   server_.on("/api/v1/wind/resistors", HTTP_POST, [this]() { onWindResistors(); });
-  server_.on("/api/v1/dashboard/layout", HTTP_POST, [this]() { onDashboardLayout(); });
-  server_.on("/api/v1/dashboard/layout", HTTP_GET, [this]() { onDashboardLayoutGet(); });
-  server_.on("/gridstack.min.css", HTTP_GET, [this]() {
-    server_.sendHeader("Content-Encoding", "gzip");
-    server_.sendHeader("Cache-Control", "max-age=3600");
-    server_.send_P(200, PSTR("text/css"), (PGM_P)gridstack_css_gz, gridstack_css_gz_len);
-  });
-  server_.on("/gridstack-all.min.js", HTTP_GET, [this]() {
-    server_.sendHeader("Content-Encoding", "gzip");
-    server_.sendHeader("Cache-Control", "max-age=3600");
-    server_.send_P(200, PSTR("application/javascript"), (PGM_P)gridstack_js_gz, gridstack_js_gz_len);
-  });
   server_.on("/api/v1/history", HTTP_GET, [this]() { onHistory(); });
   server_.on("/api/v1/events", HTTP_GET, [this]() { onEvents(); });
   server_.on("/api/v1/alarms", HTTP_GET, [this]() { onAlarms(); });
@@ -225,14 +212,12 @@ void HttpServer::onRoot() {
   // JS oculta el menú/los controles de edición (solo tema + login).
   const bool authed = webAuthed();
 
-  static const char kIndexHtml[] PROGMEM = R"html(
-<!DOCTYPE html>
+  static const char kIndexHtml[] PROGMEM = R"html(<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SEMA</title>
-<link rel="stylesheet" href="/gridstack.min.css">
 <style>
 :root{--bg:#0F172A;--bg2:#111827;--card:#1B2336;--bd:#334155;--fg:#F8FAFC;--muted:#94A3B8;--acc:#22d3ee;--ok:#22c55e;--err:#f87171;--warn:#f59e0b;--on-acc:#062b33}
 body.light{--bg:#F1F5F9;--bg2:#E2E8F0;--card:#FFFFFF;--bd:#CBD5E1;--fg:#0F172A;--muted:#475569;--acc:#0e7490;--ok:#16a34a;--err:#dc2626;--warn:#d97706;--on-acc:#ffffff}
@@ -242,24 +227,23 @@ h1{margin:0 0 .35rem;font-size:1.35rem;letter-spacing:.02em;text-shadow:0 0 12px
 h2{margin:1.25rem 0 .5rem;text-shadow:0 0 10px rgba(34,211,238,.18)}
 .muted{color:var(--muted)}
 a{color:var(--muted);text-decoration:none}
-.card{height:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:.65rem;position:relative;transition:background .25s,border-color .25s}
+.card{box-sizing:border-box;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:.7rem .8rem;transition:background .25s,border-color .25s}
 .card .t{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
 .card .v{font-size:1.4rem;font-weight:600;margin:.15rem 0;font-family:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace}
 .card .v span{font-size:.75rem;color:var(--muted);font-weight:400;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .card .s{font-size:.68rem;color:var(--acc);text-shadow:0 0 8px rgba(34,211,238,.3)}
-.card .del{position:absolute;top:.25rem;right:.25rem;background:var(--bg2);color:var(--err);border:1px solid var(--bd);border-radius:6px;width:24px;height:24px;line-height:1;cursor:pointer;font-size:.8rem;padding:0}
-canvas.chart{width:100%;height:100%;display:block}
-.grid-stack{background:var(--bg)}
-.grid-stack>.grid-stack-item>.grid-stack-item-content{overflow:hidden}
-input,button{box-sizing:border-box;padding:.5rem;margin:.3rem 0;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);font-size:.9rem;font-family:inherit}
-input{display:block;width:100%}
-button{width:100%;background:var(--acc);color:var(--on-acc);border:0;cursor:pointer;border-radius:8px;font-weight:600;transition:opacity .15s,transform .15s,box-shadow .15s}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:.6rem;margin-top:.5rem}
+.fcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem}
+.fcard{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:.7rem}
+.ft{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:.35rem}
+.frow{display:flex;justify-content:space-between;gap:.5rem;font-size:.85rem;margin:.25rem 0}
+.frow b{font-family:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;font-weight:600}
+.frow .c{color:var(--muted);font-size:.7rem}
+button{padding:.5rem .8rem;border:1px solid var(--bd);border-radius:8px;background:var(--acc);color:var(--on-acc);cursor:pointer;font-size:.88rem;font-weight:600;font-family:inherit;transition:opacity .15s,transform .15s,box-shadow .15s}
 button:hover{opacity:.92;box-shadow:0 0 12px rgba(34,211,238,.35)}
 button:active{transform:scale(.97)}
 button.sec{background:var(--bg2);color:var(--fg);border:1px solid var(--bd)}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-.bar{display:flex;gap:.5rem;flex-wrap:wrap;margin:.75rem 0}
-.bar button{flex:1;min-width:130px}
 .nav{display:flex;align-items:center;gap:.4rem;padding:.5rem .8rem;margin:0 0 1rem;border:1px solid var(--bd);border-radius:12px;background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12);flex-wrap:wrap}
 .nav-links{display:flex;gap:.2rem;flex-wrap:wrap;flex:1;min-width:0}
 .nav a{color:var(--muted);text-decoration:none;padding:.34rem .62rem;border-radius:8px;font-size:.88rem;white-space:nowrap}
@@ -267,33 +251,12 @@ button.sec{background:var(--bg2);color:var(--fg);border:1px solid var(--bd)}
 .nav .out{color:var(--err)}
 .nav-right{margin-left:auto;display:flex;gap:.35rem;align-items:center}
 .nav-right button,#publicBar button{width:auto;margin:0}
-.grid-wind{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem}
-label{font-size:.75rem;color:var(--muted);display:block}
 section{border:1px solid var(--bd);border-radius:12px;padding:1.2rem;margin:1rem 0;background:var(--card);transition:background .25s,border-color .25s}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none;z-index:50;overflow:auto;padding:1rem}
-.modal.open{display:block}
-.modal-box{background:var(--bg);border:1px solid var(--bd);border-radius:14px;max-width:520px;margin:3rem auto;padding:1.3rem;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:pop .18s ease}
-@keyframes pop{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
-.catalog{max-height:60vh;overflow:auto;border:1px solid var(--bd);border-radius:8px;padding:.5rem;background:var(--bg)}
-.cat-item{display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.55rem .6rem;border-bottom:1px solid var(--bd);cursor:pointer}
-.cat-item:hover{background:var(--bg2)}
-.cat-item .add{background:var(--ok);border:0;border-radius:8px;color:#fff;padding:.25rem .7rem;cursor:pointer;width:auto;font-size:.8rem}
-.cat-group{font-size:.72rem;color:var(--muted);text-transform:uppercase;margin:.6rem 0 .2rem;letter-spacing:.03em}
-.range{display:flex;gap:2px;margin:.2rem 0}
-.rbtn{width:auto;padding:.15rem .55rem;font-size:.68rem;background:var(--bg2);border:1px solid var(--bd);border-radius:4px;cursor:pointer;margin:0;color:var(--muted)}
-.rbtn.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
-.legend{display:flex;flex-wrap:wrap;gap:.5rem;font-size:.68rem;color:var(--muted);margin-top:.2rem}
-canvas.chart{width:100%;height:120px;min-height:110px;display:block}
-.edit-only{display:none}
-body.editing .edit-only{display:inline-block}
-body:not(.editing) .del{display:none}
-body.light input{background:#fff;color:#0F172A}
 @media(max-width:640px){
  .nav-links{flex-basis:100%;order:2;margin-top:.3rem}
- .grid-wind{grid-template-columns:repeat(2,1fr)}
+ .cards,.fcards{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 }
 </style>
-<script src="/gridstack-all.min.js"></script>
 </head>
 <body>
 <h1>SEMA</h1>
@@ -321,224 +284,63 @@ body.light input{background:#fff;color:#0F172A}
   </div>
 </nav>
 
-<div class="bar" id="editBar">
-  <button class="edit-only" onclick="openCatalog()">➕ Añadir tarjeta</button>
-  <button class="sec" onclick="toggleEdit()">✏️ <span data-i18n="edit_layout">Editar layout</span></button>
-  <button class="sec edit-only" onclick="saveLayout()">💾 <span data-i18n="save_layout">Guardar layout</span></button>
-</div>
-
-<div class="grid-stack" id="grid"></div>
+<section>
+  <h2>🌡️ <span data-i18n="sensors">Sensores</span></h2>
+  <p class="muted">Datos en vivo de los sensores conectados.</p>
+  <div class="cards" id="sensorCards"><span class="muted">Cargando…</span></div>
+</section>
 
 <section>
   <h2>🔮 Predicción</h2>
   <p class="muted">Tendencia estimada de temperatura, humedad y lluvia.</p>
-  <div id="forecastList"><span class="muted">Cargando…</span></div>
+  <div class="fcards" id="forecastList"><span class="muted">Cargando…</span></div>
 </section>
 
-<div class="modal" id="modal">
-  <div class="modal-box">
-    <h2 data-i18n="add_card">Añadir tarjeta</h2>
-    <p class="muted">Elegí qué mostrar. Los gráficos muestran la última hora.</p>
-    <div class="catalog" id="catalog"></div>
-    <button class="sec" onclick="closeCatalog()">Cerrar</button>
-  </div>
-</div>
-
 <script>
-const DIRS=['N','NE','E','SE','S','SO','O','NO'];
-const COLORS=['#58a6ff','#f0883e','#3fb950','#d29922','#bc8cff','#ff7b72','#56d4dd','#79c0ff'];
 const MEAS=__MEAS_LABELS__;
 function measLabel(m){const e=MEAS[m];return e?e[0]:m}
-function measDesc(m){const e=MEAS[m];return e?e[1]:''}
-function uiModal(title,msg,buttons){let m=document.getElementById('uiModal');if(!m){m=document.createElement('div');m.id='uiModal';m.className='ui-modal';document.body.appendChild(m)}m.innerHTML='<div class="ui-modal-box"><h3>'+title+'</h3><p>'+msg+'</p><div class="ui-modal-btns"></div></div>';const box=m.querySelector('.ui-modal-btns');(buttons||[{t:'Aceptar',ok:null}]).forEach(b=>{const btn=document.createElement('button');btn.textContent=b.t;if(b.sec)btn.className='sec';btn.onclick=()=>{m.classList.remove('open');if(typeof b.ok==='function')b.ok()};box.appendChild(btn)});m.classList.add('open')}
-function uiAlert(msg){uiModal('SEMA',msg,[{t:'Aceptar',ok:null,sec:true}])}
-function uiConfirm(msg,onOk){uiModal('SEMA',msg,[{t:'Cancelar',ok:null,sec:true},{t:'Aceptar',ok:onOk}])}
-let grid=null, editMode=false, cfg={}, layout=[], lastMeasurements=[];
-
-function cid(type,k){ return type+'_'+String(k).replace(/[|]/g,'~'); }
-function mkey(m){ return m.sensor_id+'|'+m.measurement; }
-
-function setEdit(on){
-  editMode=on;
-  document.body.classList.toggle('editing', on);
-  if(!grid)return;
-  grid.setStatic(!on);
-  grid.enableMove(on);
-  grid.enableResize(on);
-}
-function toggleEdit(){ setEdit(!editMode); }
+function fmtVal(v){const n=Number(v);return isFinite(n)?n.toFixed(2):String(v)}
 function toggleTheme(){
   document.body.classList.toggle('light');
   try{localStorage.setItem('sema_theme', document.body.classList.contains('light')?'light':'dark');}catch(e){}
 }
 try{if(localStorage.getItem('sema_theme')==='light')document.body.classList.add('light');}catch(e){}
 const I18N={
- es:{dashboard:'Dashboard',sensors:'Sensores',events:'Eventos',network:'Red',config:'Config',security:'Seguridad',wind:'Veleta',system:'Sistema',measurements:'Mediciones',events_title:'Eventos y alarmas',network_title:'Red (WiFi)',security_title:'Seguridad',api_keys:'Claves API',system_title:'Sistema',ntp_title:'NTP y zona horaria',general_title:'General',storage_title:'Almacenamiento (microSD)',ota_title:'Actualización (OTA)',actions:'Acciones',wind_title:'Veleta',sensors_config:'Configuración de sensores',pins_buses:'Pines de buses',io_title:'Expansores y salidas',save:'Guardar',add:'Añadir',close:'Cerrar',add_card:'Añadir tarjeta',wind_calib:'Calibración de la veleta',login_title:'Login',station_title:'Estación',logout:'Salir',scan:'Buscar redes',edit_layout:'Editar layout',save_layout:'Guardar layout',save_sensors:'Guardar sensores',save_wifi:'Guardar WiFi',save_mdns:'Guardar mDNS',check_update:'Comprobar actualización',upload_fw:'Subir firmware',restart:'Reiniciar',csv_history:'CSV histórico',login:'Login',pins_locked_ap:'Conectate al AP para editar pines',pins_fixed_pcb:'Pines fijos (PCB)'},
- en:{dashboard:'Dashboard',sensors:'Sensors',events:'Events',network:'Network',config:'Config',security:'Security',wind:'Wind vane',system:'System',measurements:'Measurements',events_title:'Events and alarms',network_title:'Network (WiFi)',security_title:'Security',api_keys:'API keys',system_title:'System',ntp_title:'NTP and timezone',general_title:'General',storage_title:'Storage (microSD)',ota_title:'Update (OTA)',actions:'Actions',wind_title:'Wind vane',sensors_config:'Sensor configuration',pins_buses:'Bus pins',io_title:'Expanders and outputs',save:'Save',add:'Add',close:'Close',add_card:'Add card',wind_calib:'Wind vane calibration',login_title:'Login',station_title:'Station',logout:'Log out',scan:'Scan',edit_layout:'Edit layout',save_layout:'Save layout',save_sensors:'Save sensors',save_wifi:'Save WiFi',save_mdns:'Save mDNS',check_update:'Check update',upload_fw:'Upload firmware',restart:'Restart',csv_history:'CSV history',login:'Login',pins_locked_ap:'Connect to the AP to edit pins',pins_fixed_pcb:'Fixed pins (PCB)'}
+ es:{dashboard:'Dashboard',sensors:'Sensores',events:'Eventos',network:'Red',config:'Config',security:'Seguridad',wind:'Veleta',system:'Sistema',logout:'Salir'},
+ en:{dashboard:'Dashboard',sensors:'Sensors',events:'Events',network:'Network',config:'Config',security:'Security',wind:'Wind vane',system:'System',logout:'Log out'}
 };
-function applyLang(l){const d=I18N[l]||I18N.es;document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k]});try{localStorage.setItem('sema_lang',l||'es')}catch(e){}}
+function applyLang(l){const d=I18N[l]||I18N.es;document.querySelectorAll('[data-i18n]').forEach(function(el){const k=el.getAttribute('data-i18n');if(d[k])el.textContent=d[k]});try{localStorage.setItem('sema_lang',l||'es')}catch(e){}}
 function toggleLang(){const cur=((localStorage.getItem('sema_lang')||'es')==='es')?'en':'es';applyLang(cur)}
 try{applyLang(localStorage.getItem('sema_lang')||'es')}catch(e){}
-async function scanWifi(){
-  document.getElementById('wifiList').innerHTML='<p class="muted">Escaneando…</p>';
-  try{
-    const r=await(await fetch('/api/v1/wifi/scan')).json();
-    const nets=(r.networks||[]).sort((a,b)=>b.rssi-a.rssi);
-    if(!nets.length){ document.getElementById('wifiList').innerHTML='<p class="muted">Sin redes encontradas</p>'; return; }
-    let h='<div class="catalog">';
-    for(const n of nets){
-      h+='<div class="cat-item"><span>'+n.ssid+' <span class="muted">('+n.rssi+' dBm'+(n.secure?' 🔒':'')+')</span></span><button class="add" data-ssid="'+n.ssid.replace(/"/g,'&quot;')+'" onclick="pickSsid(this)">Usar</button></div>';
-    }
-    h+='</div>';
-    document.getElementById('wifiList').innerHTML=h;
-  }catch(e){document.getElementById('wifiList').innerHTML='<p class="muted">Error al escanear</p>';}
-}
-function pickSsid(btn){
-  document.getElementById('cfg_ssid').value=btn.getAttribute('data-ssid');
-  document.getElementById('cfg_pass').focus();
+
+function renderSensors(r){
+  const cat=r.catalog||[], ms=r.measurements||[];
+  const healthyIds=new Set(cat.filter(function(c){return c.healthy}).map(function(c){return c.id}));
+  const items=ms.filter(function(m){return healthyIds.has(m.sensor_id)||m.sensor_id==='DERIVED'});
+  const el=document.getElementById('sensorCards');
+  if(!items.length){el.innerHTML='<span class="muted">Sin sensores conectados.</span>';return;}
+  el.innerHTML=items.map(function(m){
+    const src=(m.sensor_id==='DERIVED')?'derivado':m.sensor_id;
+    return '<div class="card"><div class="t">'+measLabel(m.measurement)+'</div>'+
+      '<div class="v">'+fmtVal(m.value)+' <span>'+m.unit+'</span></div>'+
+      '<div class="s">'+src+' · '+(m.quality||'')+'</div></div>';
+  }).join('');
 }
 
-function defaultLayout(ms){
-  const lay=[];
-  const chans=[...new Set(ms.map(m=>m.measurement))];
-  if(chans.includes('temperature')) lay.push({type:'chart',key:'temperature',x:0,y:0,w:6,h:3});
-  let x=6,y=0;
-  for(const m of ms){
-    if(x+3>12){x=0;y++;}
-    lay.push({type:'value',key:mkey(m),x:x,y:y,w:3,h:1});
-    x+=3;
-  }
-  return lay;
-}
-
-function findValue(key){
-  return lastMeasurements.find(m=>mkey(m)===key);
-}
-
-function cardContent(it){
-  if(it.type==='chart'){
-    return '<div class="card"><div class="t">📈 '+measLabel(it.key)+' <span class="q" title="'+measDesc(it.key)+'">?</span></div>'+
-           '<div class="range">'+
-             '<button class="rbtn on" data-r="1" onclick="setRange(this,\''+it.key+'\')">1h</button>'+
-             '<button class="rbtn" data-r="24" onclick="setRange(this,\''+it.key+'\')">24h</button>'+
-             '<button class="rbtn" data-r="168" onclick="setRange(this,\''+it.key+'\')">7d</button>'+
-           '</div>'+
-           '<canvas class="chart" data-key="'+it.key+'" data-range="1"></canvas>'+
-           '<div class="legend" data-key="'+it.key+'"></div>'+
-           '<button class="del" onclick="deleteCard(\''+cid(it.type,it.key)+'\')">✕</button></div>';
-  }
-  const m=findValue(it.key);
-  const isClock=m&&m.measurement==='clock';
-  const v=m?(isClock?new Date((+m.value)*1000).toLocaleTimeString():(+m.value).toFixed(2)):'—';
-  const u=m&&!isClock?m.unit:'';
-  const nm=m?m.measurement:it.key;
-  const st=(m&&!isClock)?(m.sensor_id+' · '+(m.quality||'')):'';
-  return '<div class="card"><div class="t">'+measLabel(nm)+' <span class="q" title="'+measDesc(nm)+'">?</span></div>'+
-         '<div class="v">'+v+' <span>'+u+'</span></div>'+
-         '<div class="s">'+st+'</div>'+
-         '<button class="del" onclick="deleteCard(\''+cid(it.type,it.key)+'\')">✕</button></div>';
-}
-
-function renderCards(){
-  if(!grid){
-    grid=GridStack.init({column:12, cellHeight:72, margin:6, float:false, columnOpts:{breakpoints:[{w:640,c:1},{w:768,c:2},{w:1024,c:4}]}});
-  }
-  grid.removeAll();
-  for(const it of layout){
-    grid.addWidget({
-      id:cid(it.type,it.key), x:it.x, y:it.y, w:it.w, h:it.h,
-      content:cardContent(it)
-    });
-  }
-  setEdit(editMode);
-  drawCharts();
-}
-
-function fmtTime(ts){
-  if(ts>1000000000){const d=new Date(ts*1000);return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
-  return '+'+(ts/60).toFixed(0)+'m';
-}
-
-function drawChartCard(cv, key, rangeH){
-  const ctx=cv.getContext('2d');
-  const cs=getComputedStyle(document.body),MUTED=cs.getPropertyValue('--muted').trim()||'#8b949e',GRID=cs.getPropertyValue('--bd').trim()||'#263043';
-  const dpr=window.devicePixelRatio||1;
-  const w=cv.clientWidth||cv.width||200, h=cv.clientHeight||cv.height||130;
-  cv.width=w*dpr; cv.height=h*dpr; ctx.scale(dpr,dpr);
-  ctx.clearRect(0,0,w,h);
-  ctx.fillStyle=MUTED; ctx.font='10px system-ui';
-  ctx.fillText('Cargando…',8,14);
-
-  fetch('/api/v1/history?limit=3000').then(r=>r.json()).then(r=>{
-    const now=Date.now()/1000;
-    const since=now-rangeH*3600;
-    const items=(r.history||[]).filter(m=>m.measurement===key && m.ts>=since);
-    const sensors=[...new Set(items.map(m=>m.sensor))];
-    const unit=(items[0]||{}).unit||'';
-    ctx.clearRect(0,0,w,h);
-
-    if(items.length<2){ ctx.fillStyle=MUTED; ctx.font='10px system-ui'; ctx.fillText('Sin datos suficientes',8,14); return; }
-
-    const padL=36,padR=8,padT=8,padB=18;
-    const pw=w-padL-padR, ph=h-padT-padB;
-    const vals=items.map(m=>m.value);
-    let min=Math.min.apply(null,vals), max=Math.max.apply(null,vals);
-    if(max===min){max=min+1;}
-    const range=max-min;
-
-    // Rejilla + eje Y (valores)
-    ctx.strokeStyle=GRID; ctx.fillStyle=MUTED; ctx.font='9px system-ui';
-    for(let i=0;i<=3;i++){
-      const y=padT+ph*i/3;
-      ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke();
-      const v=max-range*i/3;
-      ctx.fillText((Math.abs(v)>=100?v.toFixed(0):v.toFixed(1)),2,y+3);
-    }
-    // Eje X (tiempo)
-    for(let i=0;i<=4;i++){
-      const ts=since+(now-since)*i/4;
-      const x=padL+pw*i/4;
-      ctx.fillText(fmtTime(ts), x-12, h-5);
-    }
-    // Unidad (esquina superior izquierda)
-    ctx.fillStyle=MUTED; ctx.font='9px system-ui';
-    ctx.fillText(unit, 2, padT-1);
-
-    // Series (una por sensor)
-    sensors.forEach((s,si)=>{
-      const series=items.filter(m=>m.sensor===s).sort((a,b)=>a.ts-b.ts);
-      if(series.length<2) return;
-      ctx.strokeStyle=COLORS[si%COLORS.length]; ctx.lineWidth=1.6; ctx.beginPath();
-      series.forEach((m,i)=>{
-        const x=padL+pw*(m.ts-since)/(now-since);
-        const y=padT+ph*(1-(m.value-min)/range);
-        i?ctx.lineTo(x,y):ctx.moveTo(x,y);
-      });
-      ctx.stroke();
-    });
-
-    // Leyenda
-    const lg=document.querySelector('.legend[data-key="'+key+'"]');
-    if(lg) lg.innerHTML=sensors.map((s,i)=>'<span style="color:'+COLORS[i%COLORS.length]+'">● '+s+'</span>').join(' ');
-  }).catch(()=>{});
-}
-
-function setRange(btn, key){
-  const card=btn.closest('.card');
-  card.querySelectorAll('.rbtn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  const cv=card.querySelector('canvas.chart');
-  const r=parseInt(btn.getAttribute('data-r'),10);
-  cv.setAttribute('data-range', r);
-  drawChartCard(cv, key, r);
-}
-
-async function drawCharts(){
-  document.querySelectorAll('canvas.chart').forEach(cv=>{
-    const k=cv.getAttribute('data-key');
-    const r=parseInt(cv.getAttribute('data-range')||'1',10);
-    drawChartCard(cv, k, r);
-  });
+function loadForecast(){
+  const el=document.getElementById('forecastList');
+  fetch('/api/v1/forecast').then(function(r){return r.json()}).then(function(d){
+    const preds=d.predictions||[];
+    if(!preds.length){el.innerHTML='<span class="muted">Aún no hay datos suficientes.</span>';return;}
+    el.innerHTML=preds.map(function(p){
+      const hs=(p.horizons||[]).map(function(hz){
+        const v=hz.available?fmtVal(hz.value):'—';
+        const c=hz.available?Math.round(hz.confidence*100)+'%':'—';
+        return '<div class="frow"><span>+'+hz.hours+'h</span><b>'+v+'</b><span class="c">'+c+'</span></div>';
+      }).join('');
+      return '<div class="fcard"><div class="ft">'+measLabel(p.measurement)+'</div>'+hs+'</div>';
+    }).join('');
+  }).catch(function(){el.innerHTML='<span class="muted">Sin datos de predicción.</span>';});
 }
 
 async function refresh(){
@@ -550,118 +352,18 @@ async function refresh(){
   }catch(e){const foot=document.getElementById('foot'); if(foot) foot.textContent='Sin conexión';}
   try{
     const r=await(await fetch('/api/v1/sensors')).json();
-    lastMeasurements=r.measurements||[];
-    if(!grid){ renderCards(); }
-    else { updateCards(); }
+    renderSensors(r);
   }catch(e){}
 }
 
-function updateCards(){
-  for(const it of layout){
-    if(it.type!=='value') continue;
-    const card=document.getElementById(cid(it.type,it.key));
-    if(!card) continue;
-    const m=findValue(it.key);
-    const vEl=card.querySelector('.v');
-    const sEl=card.querySelector('.s');
-    if(vEl) vEl.innerHTML=(m?(+m.value).toFixed(2):'—')+' <span>'+(m?m.unit:'')+'</span>';
-    if(sEl) sEl.innerHTML=(m?m.sensor_id:'')+' · '+(m?m.quality:'');
-  }
-}
-
-function buildCatalog(){
-  const c=document.getElementById('catalog');
-  let h='<div class="cat-group">Gráficos (última hora)</div>';
-  const chans=[...new Set(lastMeasurements.map(m=>m.measurement))];
-  chans.forEach(ch=>{
-    h+='<div class="cat-item"><span>📈 '+ch+'</span><button class="add" onclick="addCard(\'chart\',\''+ch+'\')">Añadir</button></div>';
-  });
-  h+='<div class="cat-group">Valores actuales</div>';
-  lastMeasurements.forEach(m=>{
-    h+='<div class="cat-item"><span>'+m.measurement+' <span class="muted">('+m.sensor_id+')</span></span><button class="add" onclick="addCard(\'value\',\''+mkey(m)+'\')">Añadir</button></div>';
-  });
-  c.innerHTML=h||'<div class="muted">Sin datos disponibles</div>';
-}
-
-function openCatalog(){ buildCatalog(); document.getElementById('modal').classList.add('open'); }
-function closeCatalog(){ document.getElementById('modal').classList.remove('open'); }
-
-function addCard(type,key){
-  if(layout.some(it=>it.type===type && it.key===key)) return;
-  // Colocar al fondo de la columna más baja para no superponer.
-  let y=0;
-  layout.forEach(it=>{ y=Math.max(y, it.y+it.h); });
-  layout.push({type:type,key:key,x:0,y:y,w:type==='chart'?6:3,h:type==='chart'?3:1});
-  closeCatalog();
-  renderCards();
-  saveLayout();
-}
-
-function deleteCard(id){
-  layout=layout.filter(it=>cid(it.type,it.key)!==id);
-  renderCards();
-  saveLayout();
-}
-
-async function saveLayout(){
-  if(!grid)return;
-  const lay=grid.save(false).map(it=>{
-    const l=layout.find(l=>cid(l.type,l.key)===it.id);
-    return {type:l?l.type:'value', key:l?l.key:it.id, x:it.x, y:it.y, w:it.w, h:it.h};
-  });
-  layout=lay;
-  try{
-    await fetch('/api/v1/dashboard/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lay)});
-  }catch(e){}
-}
-
-async function loadConfig(){
-  try{
-    const r=await(await fetch('/api/v1/config')).json();
-    cfg=r;
-  }catch(e){}
-  try{
-    const lr=await(await fetch('/api/v1/dashboard/layout')).json();
-    const l=JSON.parse(lr.layout||'[]');
-    if(Array.isArray(l)&&l.length) layout=l;
-  }catch(e){}
-}
-
-function loadForecast(){
-  var el=document.getElementById('forecastList');
-  fetch('/api/v1/forecast').then(function(r){return r.json()}).then(function(d){
-    var preds=(d.predictions||[]);
-    if(!preds.length){ el.innerHTML='<span class="muted">Aún no hay datos suficientes.</span>'; return; }
-    var h='';
-    preds.forEach(function(p){
-      h+='<div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:baseline;margin:.35rem 0"><b style="min-width:88px">'+measLabel(p.measurement)+'</b>';
-      (p.horizons||[]).forEach(function(hz){
-        h+='<span class="muted" style="font-size:.78rem">+'+hz.hours+'h <b style="color:var(--fg)">'+(hz.available?(+hz.value).toFixed(1):'—')+'</b><span style="font-size:.66rem"> ('+(hz.available?Math.round(hz.confidence*100)+'%':'—')+')</span></span>';
-      });
-      h+='</div>';
-    });
-    el.innerHTML=h;
-  }).catch(function(){ el.innerHTML='<span class="muted">Sin datos de predicción.</span>'; });
-}
 async function boot(){
-  await loadConfig();
-  // Si no hay layout guardado, usar el por defecto al recibir la primera lectura.
   await refresh();
-  if(!layout.length && lastMeasurements.length){
-    layout=defaultLayout(lastMeasurements);
-    renderCards();
-    saveLayout();
-  }
   setInterval(refresh,5000);
-  setInterval(drawCharts,60000);
   loadForecast();
   setInterval(loadForecast,60000);
-  let rto=null;
-  window.addEventListener('resize',()=>{clearTimeout(rto);rto=setTimeout(drawCharts,150);});
 }
 if(!window.SEMA_AUTH){
   document.getElementById('mainNav').style.display='none';
-  document.getElementById('editBar').style.display='none';
   document.getElementById('publicBar').style.display='flex';
 }
 boot();
@@ -813,7 +515,7 @@ void serveAuthedPage(WebServer& srv, bool authed, const String& body) {
 
 void HttpServer::onSensorsViewPage() {
   const bool authed = webAuthed();
-  const String body = R"html(
+  String body = R"html(
 <section><h2 data-i18n="sensors">Sensores</h2>
 <p class="muted">Estado en vivo de los sensores y sus mediciones (se actualiza cada 5 s).</p>
 <div id="list" class="muted">Cargando…</div>
@@ -841,17 +543,16 @@ async function refresh(){
 refresh();setInterval(refresh,5000);
 </script>
 )html";
-  String bodyOut = body;
-  bodyOut.replace("__SENSOR_CATALOG__",
+  body.replace("__SENSOR_CATALOG__",
                   coreHooks().sensorCatalogJson
                       ? coreHooks().sensorCatalogJson()
                       : String("[]"));
-  serveAuthedPage(server_, authed, bodyOut);
+  serveAuthedPage(server_, authed, body);
 }
 
 void HttpServer::onEventsPage() {
   const bool authed = webAuthed();
-  const String body = R"html(
+  String body = R"html(
 <section><h2 data-i18n="events_title">Eventos y alarmas</h2>
 <p class="muted">Últimos eventos del sistema (se actualiza cada 5 s).</p>
 <div id="list" class="muted">Cargando…</div>
@@ -874,17 +575,16 @@ async function refresh(){
 refresh();setInterval(refresh,5000);
 </script>
 )html";
-  String bodyOut = body;
-  bodyOut.replace("__SENSOR_CATALOG__",
+  body.replace("__SENSOR_CATALOG__",
                   coreHooks().sensorCatalogJson
                       ? coreHooks().sensorCatalogJson()
                       : String("[]"));
-  serveAuthedPage(server_, authed, bodyOut);
+  serveAuthedPage(server_, authed, body);
 }
 
 void HttpServer::onNetworkPage() {
   const bool authed = webAuthed();
-  const String body = R"html(
+  String body = R"html(
 <section><h2 data-i18n="network_title">Red (WiFi)</h2>
 <button class="sec" onclick="scanWifi()">🔍 <span data-i18n="scan">Buscar redes</span></button><div id="wifiList"></div>
 <form onsubmit="saveWifi();return false;">
@@ -923,17 +623,16 @@ function pickSsid(b){document.getElementById('cfg_ssid').value=b.getAttribute('d
 loadNet();
 </script>
 )html";
-  String bodyOut = body;
-  bodyOut.replace("__SENSOR_CATALOG__",
+  body.replace("__SENSOR_CATALOG__",
                   coreHooks().sensorCatalogJson
                       ? coreHooks().sensorCatalogJson()
                       : String("[]"));
-  serveAuthedPage(server_, authed, bodyOut);
+  serveAuthedPage(server_, authed, body);
 }
 
 void HttpServer::onSecurityPage() {
   const bool authed = webAuthed();
-  const String body = R"html(
+  String body = R"html(
 <section><h2 data-i18n="station_title">Estación</h2>
 <form onsubmit="saveStation();return false;">
 <input id="cfg_name" placeholder="Nombre de la estación">
@@ -966,17 +665,16 @@ async function save(){try{const r=await fetch('/api/v1/config',{method:'PUT',hea
 loadSec();
 </script>
 )html";
-  String bodyOut = body;
-  bodyOut.replace("__SENSOR_CATALOG__",
+  body.replace("__SENSOR_CATALOG__",
                   coreHooks().sensorCatalogJson
                       ? coreHooks().sensorCatalogJson()
                       : String("[]"));
-  serveAuthedPage(server_, authed, bodyOut);
+  serveAuthedPage(server_, authed, body);
 }
 
 void HttpServer::onSystemPage() {
   const bool authed = webAuthed();
-  const String body = R"html(
+  String body = R"html(
 <section><h2 data-i18n="system_title">Sistema</h2>
 <div id="status" class="muted">Cargando…</div>
 <pre id="sysinfo" class="muted"></pre></section>
@@ -1057,17 +755,16 @@ async function doRestart(){uiConfirm('¿Reiniciar?',async()=>{try{await fetch('/
 load();
 </script>
 )html";
-  String bodyOut = body;
-  bodyOut.replace("__SENSOR_CATALOG__",
+  body.replace("__SENSOR_CATALOG__",
                   coreHooks().sensorCatalogJson
                       ? coreHooks().sensorCatalogJson()
                       : String("[]"));
-  serveAuthedPage(server_, authed, bodyOut);
+  serveAuthedPage(server_, authed, body);
 }
 
 void HttpServer::onWindPage() {
   const bool authed = webAuthed();
-  const String body = R"html(
+  String body = R"html(
 <section><h2 data-i18n="wind_calib">Calibración de la veleta (WH-SP-WD)</h2>
 <p class="muted">Ingresá los valores de las 8 resistencias en el orden del datasheet (empezando por N) y el pull-up. Las 16 posiciones (8 directas + 8 en paralelo) se calculan automáticamente.</p>
 <div class="row" id="windInputs"></div>
@@ -1084,17 +781,16 @@ async function calibrateNorth(){try{const resp=await fetch('/api/v1/wind/north',
 renderWind();loadWind();
 </script>
 )html";
-  String bodyOut = body;
-  bodyOut.replace("__SENSOR_CATALOG__",
+  body.replace("__SENSOR_CATALOG__",
                   coreHooks().sensorCatalogJson
                       ? coreHooks().sensorCatalogJson()
                       : String("[]"));
-  serveAuthedPage(server_, authed, bodyOut);
+  serveAuthedPage(server_, authed, body);
 }
 
 void HttpServer::onSensorsPage() {
   const bool authed = webAuthed();
-  const String body = R"html(
+  String body = R"html(
 <p id="pinLockNote" class="muted" style="display:none"></p>
 <section><h2 data-i18n="sensors_config">Configuración de sensores</h2>
 <p class="muted">Marcá los sensores que tenés conectados y asigná los pines. Guardar aplica y reinicia los sensores.</p>
@@ -1511,12 +1207,11 @@ function applyPinLock(){
 load();
 </script>
 )html";
-  String bodyOut = body;
-  bodyOut.replace("__SENSOR_CATALOG__",
+  body.replace("__SENSOR_CATALOG__",
                   coreHooks().sensorCatalogJson
                       ? coreHooks().sensorCatalogJson()
                       : String("[]"));
-  serveAuthedPage(server_, authed, bodyOut);
+  serveAuthedPage(server_, authed, body);
 }
 
 bool HttpServer::webAuthed() {
@@ -2514,36 +2209,6 @@ void HttpServer::onWindResistors() {
     body = coreHooks().windResistorsJson(*core_, server_.arg("plain"), status);
   }
   server_.send(status, "application/json", body);
-}
-
-void HttpServer::onDashboardLayout() {
-  if (!webAuthed()) {
-    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
-    return;
-  }
-  if (!server_.hasArg("plain")) {
-    server_.send(400, "application/json", "{\"error\":\"missing body\"}");
-    return;
-  }
-  if (!core_->config().saveDashboardLayout(server_.arg("plain"))) {
-    server_.send(500, "application/json", "{\"error\":\"layout save failed\"}");
-    return;
-  }
-  server_.send(200, "application/json", "{\"ok\":true}");
-}
-
-void HttpServer::onDashboardLayoutGet() {
-  if (!webAuthed()) {
-    server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
-    return;
-  }
-  String layout;
-  core_->config().loadDashboardLayout(layout);
-  String out;
-  DynamicJsonDocument doc(2048);
-  doc["layout"] = layout.length() ? layout : "[]";
-  serializeJson(doc, out);
-  server_.send(200, "application/json", out);
 }
 
 void HttpServer::onHistory() {

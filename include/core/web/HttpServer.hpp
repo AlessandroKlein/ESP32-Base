@@ -61,8 +61,6 @@ private:
   void onForecast();
   void onWindNorth();
   void onWindResistors();
-  void onDashboardLayout();
-  void onDashboardLayoutGet();
   void onHistory();
   void onEvents();
   void onAlarms();

@@ -49,7 +49,6 @@ struct SystemConfig {
   String units = "metric";          // "metric" | "imperial"
   String lang = "es";               // "es" | "en" (idioma de la web)
   WeatherConfig weather;            // configuración específica de dominio
-  String dashboardLayout;  // JSON del layout Gridstack (global, no por usuario)
 };
 
 struct StorageConfig {
@@ -355,11 +354,6 @@ public:
   bool valid() const { return valid_; }
   bool toJson(String& out) const { return serialize(out); }
   bool applyJson(const String& json);  // parsea y aplica transaccionalmente
-
-  // Layout del dashboard en una clave NVS separada (no en el JSON de config,
-  // para no exceder el límite de tamaño de una entrada NVS).
-  bool saveDashboardLayout(const String& layout);
-  bool loadDashboardLayout(String& out);
 
 private:
   bool validate(const Config& c) const;

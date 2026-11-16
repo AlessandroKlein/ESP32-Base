@@ -1,12 +1,14 @@
 #include "core/ConfigManager.hpp"
 
 #include <ArduinoJson.h>
+#include <LittleFS.h>
 
 #include "base/board_config.h"
 
 namespace base {
 
 static const char* kConfigKey = "config";
+static const char* kConfigFile = "/config.json";  // LittleFS: la config supera el límite de 4 KB de una entrada NVS
 
 // Si SEMA_PINS_FROM_FILE, fija los pines desde HwProfile.hpp (PCB) e ignora
 // los que vengan de la web.
@@ -44,6 +46,20 @@ ConfigManager::ConfigManager(KeyValueStore& store) : store_(store) {}
 
 bool ConfigManager::load() {
   String raw;
+  // 1) LittleFS (D-0046): la config JSON puede superar los ~4 KB de una entrada
+  //    NVS, por lo que se persiste en archivo.
+  if (LittleFS.begin(true)) {
+    File f = LittleFS.open(kConfigFile, "r");
+    if (f) {
+      raw = f.readString();
+      f.close();
+      if (raw.length() > 0 && deserialize(raw) && validate(config_)) {
+        valid_ = true;
+        return true;
+      }
+    }
+  }
+  // 2) Backward-compat: config previa en NVS (se migra al guardar).
   if (store_.getString(kConfigKey, raw) && raw.length() > 0) {
     if (deserialize(raw) && validate(config_)) {
       valid_ = true;
@@ -74,16 +90,25 @@ bool ConfigManager::save() {
     Serial.println("[cfg] serialize failed");
     return false;
   }
-  bool ok = store_.putString(kConfigKey, raw.c_str());
-  if (!ok) {
-    // NVS lleno/fragmentado (NOT_ENOUGH_SPACE): limpia el namespace y reintenta
-    // una vez. Se pierden la config anterior y el layout, pero se recupera el
-    // guardado sin necesidad de reflashear.
-    Serial.println("[cfg] NVS sin espacio: limpiando y reintentando");
-    store_.clear();
-    ok = store_.putString(kConfigKey, raw.c_str());
+  // Persiste en LittleFS (D-0046): el JSON serializado puede superar los ~4 KB
+  // que admite una entrada NVS (nvs_set_str falla → todos los formularios de
+  // guardado daban error). No se usa NVS para no limitar el tamaño de la config.
+  if (!LittleFS.begin(true)) {
+    Serial.println("[cfg] LittleFS no disponible");
+    return false;
   }
-  return ok;
+  File f = LittleFS.open(kConfigFile, "w");
+  if (!f) {
+    Serial.println("[cfg] no se pudo abrir /config.json");
+    return false;
+  }
+  const size_t n = f.print(raw);
+  f.close();
+  if (n != raw.length()) {
+    Serial.println("[cfg] escritura incompleta de /config.json");
+    return false;
+  }
+  return true;
 }
 
 bool ConfigManager::apply(const Config& next) {
@@ -558,14 +583,6 @@ bool ConfigManager::applyJson(const String& json) {
     return false;
   }
   return apply(next);
-}
-
-bool ConfigManager::saveDashboardLayout(const String& layout) {
-  return store_.putString("layout", layout.c_str());
-}
-
-bool ConfigManager::loadDashboardLayout(String& out) {
-  return store_.getString("layout", out);
 }
 
 }  // namespace base
