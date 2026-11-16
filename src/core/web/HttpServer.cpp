@@ -1,5 +1,7 @@
 #include "core/web/HttpServer.hpp"
 
+#if SEMA_USE_WEB
+
 #include <ArduinoJson.h>
 #include <Update.h>
 #include <WiFi.h>
@@ -3198,3 +3200,5 @@ void HttpServer::onNotFound() {
 }
 
 }  // namespace base
+
+#endif  // SEMA_USE_WEB

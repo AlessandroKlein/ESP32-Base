@@ -186,7 +186,9 @@ void SemaCore::setup() {
   configTzTime(posixTz(config_.get().system.timezone),
                config_.get().system.ntpServer.c_str(), "time.nist.gov");
 
+#if SEMA_USE_WEB
   http_.begin(*this);
+#endif
 
   // Publicadores (D-0010): webhook HTTP y MQTT, configurados desde la config.
   publishers_.registerPublisher(&webhook_);
@@ -214,7 +216,9 @@ void SemaCore::setup() {
     sensors_.readAll();
     health_.setSensorStats(sensors_.onlineCount(), sensors_.count());
     health_.taskHeartbeat("sensors.read");
+#if SEMA_USE_WEB
     http_.broadcastMeasurements(sensors_.measurements());
+#endif
     for (const Measurement& m : sensors_.measurements()) {
       if (coreHooks().forecastAddSample) {
         coreHooks().forecastAddSample(m.measurement.c_str(), m.timestamp, m.value);
@@ -489,7 +493,9 @@ void SemaCore::loop() {
   watchdog_.feed();
   modules_.loopAll();
   wifi_.loop();
+#if SEMA_USE_WEB
   http_.loop();
+#endif
 #if SEMA_USE_ZIGBEE
   zigbee_.loop();
 #endif

@@ -102,6 +102,9 @@
 #ifndef SEMA_USE_MESH_ESPNOW
 #define SEMA_USE_MESH_ESPNOW SEMA_OFF
 #endif
+#ifndef SEMA_USE_WEB
+#define SEMA_USE_WEB SEMA_ON
+#endif
 
 // --- Transceiver RS485 ---
 #ifndef SEMA_MODBUS_ISOLATED

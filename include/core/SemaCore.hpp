@@ -68,7 +68,9 @@
 #include "core/publishers/PublisherManager.hpp"
 #include "core/storage/HistoryStore.hpp"
 #include "core/storage/NvsStore.hpp"
+#if SEMA_USE_WEB
 #include "core/web/HttpServer.hpp"
+#endif
 
 // =============================================================================
 // ESP32-Base — Núcleo de la plataforma
@@ -274,7 +276,9 @@ private:
   std::vector<Sensor*> ownedSensors_;  // sensores creados por la factoría (D-0042)
   Scheduler scheduler_;
   WiFiManager wifi_;
+#if SEMA_USE_WEB
   HttpServer http_;
+#endif
 };
 
 }  // namespace base
