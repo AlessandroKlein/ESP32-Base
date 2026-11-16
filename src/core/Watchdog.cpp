@@ -13,7 +13,11 @@ bool Watchdog::begin(uint32_t timeoutSeconds) {
       .trigger_panic = true,
   };
   const esp_err_t err = esp_task_wdt_init(&cfg);
-  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+  if (err == ESP_ERR_INVALID_STATE) {
+    // El core de Arduino ya inicializó el TWDT (default 5 s): reconfigurar al
+    // timeout pedido para no degradar el tiempo de guarda.
+    esp_task_wdt_reconfigure(&cfg);
+  } else if (err != ESP_OK) {
     return false;
   }
   started_ = (esp_task_wdt_add(NULL) == ESP_OK);
