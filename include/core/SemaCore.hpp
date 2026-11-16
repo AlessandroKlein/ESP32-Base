@@ -43,6 +43,9 @@
 #if SEMA_USE_BACNET
 #include "core/BacnetManager.hpp"
 #endif
+#if SEMA_USE_MESH_ESPNOW
+#include "core/MeshManager.hpp"
+#endif
 #if SEMA_USE_LORA
 #include "core/LoraManager.hpp"
 #endif
@@ -126,6 +129,9 @@ public:
 #if SEMA_USE_BACNET
   void applyBacnet();
 #endif
+#if SEMA_USE_MESH_ESPNOW
+  void applyMesh();
+#endif
 #if SEMA_USE_LORA
   void applyLora();
 #endif
@@ -188,6 +194,9 @@ public:
 #if SEMA_USE_BACNET
   BacnetManager& bacnet() { return bacnet_; }
 #endif
+#if SEMA_USE_MESH_ESPNOW
+  MeshManager& mesh() { return mesh_; }
+#endif
 #if SEMA_USE_LORA
   LoraManager& lora() { return lora_; }
 #endif
@@ -246,6 +255,9 @@ private:
 #endif
 #if SEMA_USE_BACNET
   BacnetManager bacnet_;
+#endif
+#if SEMA_USE_MESH_ESPNOW
+  MeshManager mesh_;
 #endif
 #if SEMA_USE_LORA
   LoraManager lora_;

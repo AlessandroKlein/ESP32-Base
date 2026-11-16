@@ -158,6 +158,9 @@ void HttpServer::begin(SemaCore& core) {
 #if SEMA_USE_BACNET
   server_.on("/api/v1/bacnet", HTTP_GET, [this]() { onBacnet(); });
 #endif
+#if SEMA_USE_MESH_ESPNOW
+  server_.on("/api/v1/mesh", HTTP_GET, [this]() { onMesh(); });
+#endif
 #if SEMA_USE_CAN
   server_.on("/api/v1/can", HTTP_GET, [this]() { onCan(); });
   server_.on("/api/v1/can", HTTP_POST, [this]() { onCanWrite(); });
@@ -1671,6 +1674,7 @@ void HttpServer::onSystem() {
   doc["ads1115_enabled"] = (SEMA_USE_ADS1115 != 0);
   doc["modbus_tcp_enabled"] = (SEMA_USE_MODBUS_TCP != 0);
   doc["bacnet_enabled"] = (SEMA_USE_BACNET != 0);
+  doc["mesh_enabled"] = (SEMA_USE_MESH_ESPNOW != 0);
   doc["esp_temp"] = temperatureRead() - 10.0f;  // corrección aproximada del sensor interno
   doc["restart_count"] = core_->restartCount();
   doc["reset_reason"] = esp_reset_reason();
@@ -2026,6 +2030,20 @@ void HttpServer::onConfigBuses() {
     next.bacnet.networkNumber = doc["bacnet"]["network_number"] | 0;
     next.bacnet.udpPort = doc["bacnet"]["udp_port"] | 47808;
   }
+  if (doc.containsKey("mesh")) {
+    next.mesh.enabled = doc["mesh"]["enabled"] | false;
+    next.mesh.role = doc["mesh"]["role"] | 0;
+    next.mesh.channel = doc["mesh"]["channel"] | 1;
+    next.mesh.sendIntervalSec = doc["mesh"]["send_interval"] | 10;
+    next.mesh.peerCount = 0;
+    if (doc["mesh"].containsKey("peer_macs")) {
+      JsonArray meshPeers = doc["mesh"]["peer_macs"].as<JsonArray>();
+      for (JsonVariant v : meshPeers) {
+        if (next.mesh.peerCount >= 16) break;
+        next.mesh.peerMacs[next.mesh.peerCount++] = v.as<const char*>();
+      }
+    }
+  }
   if (doc.containsKey("lora")) {
     next.lora.enabled = doc["lora"]["enabled"] | false;
     if (!pinsLocked) {
@@ -2253,6 +2271,9 @@ void HttpServer::onConfigPut() {
 #endif
 #if SEMA_USE_BACNET
     core_->applyBacnet();
+#endif
+#if SEMA_USE_MESH_ESPNOW
+    core_->applyMesh();
 #endif
 #if SEMA_USE_LORA
     core_->applyLora();
@@ -3006,6 +3027,16 @@ void HttpServer::onBacnet() {
   doc["udp_port"] = core_->config().get().bacnet.udpPort;
   doc["analog_count"] = BacnetManager::kMaxAnalog;
   doc["binary_count"] = BacnetManager::kMaxBinary;
+  String out;
+  serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+#endif
+
+#if SEMA_USE_MESH_ESPNOW
+void HttpServer::onMesh() {
+  DynamicJsonDocument doc(512);
+  core_->mesh().statusJson(doc);
   String out;
   serializeJson(doc, out);
   server_.send(200, "application/json", out);

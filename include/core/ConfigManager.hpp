@@ -256,6 +256,17 @@ struct BacnetConfig {
   uint16_t udpPort = 47808;        // puerto UDP de escucha (0xBAC0 estándar)
 };
 
+// ESP-NOW mesh (maestro/esclavo). Capa de malla de corto alcance sobre el radio
+// WiFi (sin IP). El maestro agrega esclavos; los esclavos publican mediciones.
+struct MeshConfig {
+  bool enabled = false;
+  uint8_t role = 0;              // 0=off, 1=maestro, 2=esclavo
+  uint8_t channel = 1;           // canal WiFi 1..14 (0 = canal actual)
+  uint8_t peerCount = 0;         // nº de peers configurados (0..16)
+  String peerMacs[16];           // MACs "AA:BB:CC:DD:EE:FF"; FF:..=broadcast
+  uint16_t sendIntervalSec = 10; // periodo heartbeat/announce (0 = solo a demanda)
+};
+
 // LoRa (SX1262, módulo Silicontra SX1262PATR8-GC).
 struct LoraConfig {
   bool enabled = false;
@@ -324,6 +335,7 @@ struct Config {
   CanConfig can;                           // CAN/TWAI (opcional)
   ModbusTcpConfig modbusTcp;               // Modbus TCP servidor (opcional)
   BacnetConfig bacnet;                     // BACnet/IP servidor (opcional)
+  MeshConfig mesh;                         // ESP-NOW mesh maestro/esclavo (opcional)
   LoraConfig lora;                         // LoRa/SX1262 (opcional)
   ZigbeeConfig zigbee;                     // Zigbee/CC2652P2 (opcional)
   EthernetConfig ethernet;                 // Ethernet LAN8720A/W5500 (opcional)

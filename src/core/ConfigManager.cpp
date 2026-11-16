@@ -34,9 +34,9 @@ static void applyHwProfile(Config& c) {
   c.ethernet.csPin = SEMA_CS_ETHERNET_W5500;
   c.ethernet.rstPin = SEMA_PIN_ETH_W5500_RST;
   c.ethernet.irqPin = SEMA_PIN_ETH_W5500_IRQ;
-  c.ethernet.sckPin = SEMA_SPI_SCK;
-  c.ethernet.misoPin = SEMA_SPI_MISO;
-  c.ethernet.mosiPin = SEMA_SPI_MOSI;
+  c.ethernet.sckPin = SEMA_ETH_SPI_SCK;
+  c.ethernet.misoPin = SEMA_ETH_SPI_MISO;
+  c.ethernet.mosiPin = SEMA_ETH_SPI_MOSI;
 #endif
 }
 
@@ -280,6 +280,14 @@ bool ConfigManager::serialize(String& out) const {
   doc["bacnet"]["device_instance"] = config_.bacnet.deviceInstance;
   doc["bacnet"]["network_number"] = config_.bacnet.networkNumber;
   doc["bacnet"]["udp_port"] = config_.bacnet.udpPort;
+  doc["mesh"]["enabled"] = config_.mesh.enabled;
+  doc["mesh"]["role"] = config_.mesh.role;
+  doc["mesh"]["channel"] = config_.mesh.channel;
+  doc["mesh"]["send_interval"] = config_.mesh.sendIntervalSec;
+  JsonArray meshPeers = doc["mesh"].createNestedArray("peer_macs");
+  for (uint8_t i = 0; i < config_.mesh.peerCount && i < 16; ++i) {
+    meshPeers.add(config_.mesh.peerMacs[i]);
+  }
   doc["lora"]["enabled"] = config_.lora.enabled;
   doc["lora"]["cs"] = config_.lora.csPin;
   doc["lora"]["rst"] = config_.lora.rstPin;
@@ -495,6 +503,18 @@ bool ConfigManager::parseInto(const String& in, Config& c) {
   c.bacnet.deviceInstance = doc["bacnet"]["device_instance"] | 1000;
   c.bacnet.networkNumber = doc["bacnet"]["network_number"] | 0;
   c.bacnet.udpPort = doc["bacnet"]["udp_port"] | 47808;
+  c.mesh.enabled = doc["mesh"]["enabled"] | false;
+  c.mesh.role = doc["mesh"]["role"] | 0;
+  c.mesh.channel = doc["mesh"]["channel"] | 1;
+  c.mesh.sendIntervalSec = doc["mesh"]["send_interval"] | 10;
+  c.mesh.peerCount = 0;
+  if (doc["mesh"].containsKey("peer_macs")) {
+    JsonArray arr = doc["mesh"]["peer_macs"].as<JsonArray>();
+    for (JsonVariant v : arr) {
+      if (c.mesh.peerCount >= 16) break;
+      c.mesh.peerMacs[c.mesh.peerCount++] = v.as<const char*>();
+    }
+  }
   c.lora.enabled = doc["lora"]["enabled"] | false;
   c.lora.csPin = doc["lora"]["cs"] | 10;
   c.lora.rstPin = doc["lora"]["rst"] | 32;

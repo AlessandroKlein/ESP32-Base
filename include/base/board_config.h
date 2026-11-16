@@ -31,10 +31,15 @@
 #define SEMA_FLASH_MB 4
 #endif
 #ifndef SEMA_NATIVE_ETH
-// Fallback sin perfil de proyecto: detectar el chip. CONFIG_IDF_TARGET_ESP32* lo
-// define sdkconfig.h (incluido arriba vía __has_include). El ESP32 clásico es el
-// único con EMAC nativa; S2/S3/C3/C6/H2/P4 usan W5500 por SPI.
-#if defined(CONFIG_IDF_TARGET_ESP32)
+// Fallback sin perfil de proyecto. Prioridad:
+//   1) flag explícito SEMA_ETH_PHY_LAN8720A / SEMA_ETH_PHY_W5500 (gana siempre);
+//   2) detección de chip: el ESP32 clásico es el único con EMAC nativa
+//      (LAN8720A RMII); S2/S3/C3/C6/H2/P4 usan W5500 por SPI.
+#if defined(SEMA_ETH_PHY_LAN8720A)
+#define SEMA_NATIVE_ETH 1
+#elif defined(SEMA_ETH_PHY_W5500)
+#define SEMA_NATIVE_ETH 0
+#elif defined(CONFIG_IDF_TARGET_ESP32)
 #define SEMA_NATIVE_ETH 1
 #else
 #define SEMA_NATIVE_ETH 0
@@ -93,6 +98,9 @@
 #endif
 #ifndef SEMA_USE_BACNET
 #define SEMA_USE_BACNET SEMA_OFF
+#endif
+#ifndef SEMA_USE_MESH_ESPNOW
+#define SEMA_USE_MESH_ESPNOW SEMA_OFF
 #endif
 
 // --- Transceiver RS485 ---

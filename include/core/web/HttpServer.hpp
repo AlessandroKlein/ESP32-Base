@@ -107,6 +107,9 @@ private:
 #if SEMA_USE_BACNET
   void onBacnet();
 #endif
+#if SEMA_USE_MESH_ESPNOW
+  void onMesh();
+#endif
 #if SEMA_USE_CAN
   void onCan();
   void onCanWrite();

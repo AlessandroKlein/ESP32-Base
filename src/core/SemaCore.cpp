@@ -175,6 +175,12 @@ void SemaCore::setup() {
               config_.get().network.dns,
               config_.get().network.mdns);
 
+#if SEMA_USE_MESH_ESPNOW
+  // ESP-NOW requiere el radio WiFi ya iniciado (esp_now_init() asume
+  // esp_wifi_init() previo); por eso el apply del mesh va DESPUÉS de wifi_.begin().
+  mesh_.apply(config_.get().mesh);
+#endif
+
   // Sincronización NTP (D-0044): configura la zona horaria local; nowEpoch()
   // devuelve la época local y cae a uptime hasta sincronizar.
   configTzTime(posixTz(config_.get().system.timezone),
@@ -446,6 +452,12 @@ void SemaCore::applyBacnet() {
 }
 #endif
 
+#if SEMA_USE_MESH_ESPNOW
+void SemaCore::applyMesh() {
+  mesh_.apply(config_.get().mesh);
+}
+#endif
+
 #if SEMA_USE_LORA
 void SemaCore::applyLora() {
   lora_.apply(config_.get().lora);
@@ -489,6 +501,9 @@ void SemaCore::loop() {
 #endif
 #if SEMA_USE_BACNET
   bacnet_.loop();
+#endif
+#if SEMA_USE_MESH_ESPNOW
+  mesh_.loop();
 #endif
   // Retención por tiempo: poda el histórico periódicamente (cada hora).
   {
